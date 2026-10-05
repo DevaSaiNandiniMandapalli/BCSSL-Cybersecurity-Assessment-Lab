@@ -1,0 +1,30 @@
+{
+  "tool": "nuclei",
+  "purpose": "Controlled template-based vulnerability assessment",
+  "executable": "nuclei",
+  "version_args": ["-version"],
+  "transport": "auto",
+  "docker_image": "projectdiscovery/nuclei:latest",
+  "parser": "bcssl.parsers.nuclei",
+  "report_filename": "nuclei-report.jsonl",
+  "scope": "The authorized target only, rate limited.",
+  "always_excluded_tags": [
+    "dos",
+    "fuzz",
+    "intrusion",
+    "headless",
+    "bruteforce",
+    "brutespray",
+    "code",
+    "workflow"
+  ],
+  "enforcement": "The exclusion list is merged with the runner's mandatory list at command-build time, so removing it from configuration does not re-enable destructive templates.",
+  "severity_mapping": "info.severity maps directly onto the lab's five levels.",
+  "offline_behaviour": "-no-update-templates and -duc are always passed, so a lab run never downloads templates or contacts the update service. Install templates before class if the machines are offline.",
+  "install": {
+    "windows": "winget install nuclei  - or download nuclei_Windows_amd64.zip from https://github.com/projectdiscovery/nuclei/releases and put nuclei.exe on PATH",
+    "macos": "brew install nuclei",
+    "linux": "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
+    "generic": "See https://docs.projectdiscovery.io/templates/nuclei-installation"
+  }
+}

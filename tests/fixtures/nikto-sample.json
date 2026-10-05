@@ -1,0 +1,48 @@
+[
+  {
+    "ip": "127.0.0.1",
+    "port": "3001",
+    "host": "localhost:3001"
+  },
+  {
+    "msg": "+ Nikto v2.5.0",
+    "nikto": "2.5.0"
+  },
+  {
+    "msg": "+ Target IP: 127.0.0.1",
+    "ip": "127.0.0.1"
+  },
+  {
+    "msg": "+ Server: StubServer/0.1",
+    "banner": "StubServer/0.1"
+  },
+  {
+    "msg": "+ The X-Content-Type-Options header is not set. This may allow IE and Chrome to MIME-sniff the response away from the declared content type, which is a possible XSS vector."
+  },
+  {
+    "msg": "+ \"X-Powered-By\" header is not set."
+  },
+  {
+    "msg": "+ The anti-clickjacking X-Frame-Options header is not set."
+  },
+  {
+    "msg": "+ \"Content-Security-Policy\" header is not set."
+  },
+  {
+    "msg": "+ Retrieved x-powered-by header: Express (FOUND)"
+  },
+  {
+    "msg": "+ Retrieved /robots.txt (FOUND)"
+  },
+  {
+    "msg": "+ \"admin/\" folder or file was found (FOUND)"
+  },
+  {
+    "msg": "+ OSVDB-0: Cookie(s) without HttpOnly set - Severity: medium",
+    "osvdbid": "0"
+  },
+  {
+    "msg": "+ OSVDB-12345: Test issue description - Severity: high",
+    "osvdbid": "12345"
+  }
+]

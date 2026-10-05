@@ -1,0 +1,97 @@
+{
+  "id": "ex12",
+  "level": "advanced",
+  "title": "Final Security Assessment and Report",
+  "tool": "all tools (lab-cli run-all)",
+  "objective": "Execute the full authorized toolset in one reproducible pass and produce a defensible written security assessment of http://localhost:3001 that traces every claim back to a saved evidence artifact.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "Exercises 01 through 11 completed, with evidence saved in evidence/lab-cli/, evidence/nmap/, evidence/custom-scanner/, evidence/nikto/, evidence/zap/ and evidence/nuclei/.",
+    "ZAP, nikto, nuclei, nmap and the external custom-scanner (Project #08) are all installed and individually verified.",
+    "OWASP Juice Shop is running on http://localhost:3001 and you have created the folder evidence/report/.",
+    "You have read the four severity vocabularies used in this lab: ZAP 0-3 (no critical), nikto item plus HTTP code, nuclei info.severity, custom-scanner info/low/medium/high/critical."
+  ],
+  "command": "python -m bcssl run-all",
+  "expected_observation": "The lab runs the complete configured toolset in sequence against http://localhost:3001 — nmap, ZAP baseline, nikto under the lab tuning profile, the external custom-scanner, and nuclei with destructive tags excluded — then regenerates the consolidated correlation report. The console shows one clearly labelled block per tool followed by the correlation summary, and raw artifacts land under reports/raw/. Expect a longer run than any single exercise and a consolidated view in which some themes are labelled \"Confirmed by multiple tools\" and others \"Single-tool observation\". The exact set of findings depends on the tools' versions and templates and on the Juice Shop build, so record what you actually observed. Do not state a finding count you cannot cite, and do not edit any report.",
+  "student_task": [
+    "Run the exact command above from the lab project root and allow every tool to finish; note the start and end time of the pass in your report.",
+    "Copy every raw artifact the run produced from reports/raw/ into the correct evidence/<tool>/ folder with an ex12- prefix, without editing them.",
+    "Write evidence/report/ex12-final-report.md containing: scope and authorization statement; methodology and the exact commands run; tool inventory with versions; consolidated findings grouped by root cause, each with severity shown in the originating tool's own vocabulary; the confidence label for each finding; remediation advice you wrote yourself; residual risk and limitations; and a numbered evidence index listing every evidence/ file you referenced.",
+    "Add an executive summary of at most ten lines that a non-technical reader could understand.",
+    "Re-open each raw artifact once to confirm the finding you wrote about it is genuinely in that file, and mark any claim you could not verify as 'unverified' rather than deleting it silently."
+  ],
+  "evidence_requirement": [
+    "Unmodified ex12- copies of every raw artifact from the full run, filed under evidence/nmap/, evidence/zap/, evidence/nikto/, evidence/nuclei/ and evidence/custom-scanner/.",
+    "File evidence/report/ex12-final-report.md containing all eight required sections plus the executive summary.",
+    "A numbered evidence index inside that report mapping each finding to at least one evidence/ filename.",
+    "An explicit limitations section naming the tools or checks that were out of scope, including any tool that returned no findings."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "How do you justify a severity rating in the final report when four tools use four different severity vocabularies?",
+      "guidance": "Explain that you report each tool's native label as evidence, group findings by root cause so one weakness is not counted four times, and then justify any overall severity with an impact argument in your own words. State explicitly that no CVSS vector was calculated, so no numeric score is implied.",
+      "type": "keywords",
+      "expected_keywords": [
+        "root cause",
+        "impact",
+        "vocabulary",
+        "native",
+        "cvss",
+        "group"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "What belongs in the limitations section of an assessment report, and why is it the section most often missing?",
+      "guidance": "List concrete items: tools that returned nothing, templates or tuning categories that were deliberately excluded (the destructive nuclei tags, the excluded nikto tuning letters), the fact that no authentication was used, no fuzzing or injection exploitation was performed, no denial-of-service testing, and that only loopback port 3001 was assessed. Explain that omitting limitations makes the report overstate its own certainty.",
+      "type": "keywords",
+      "expected_keywords": [
+        "excluded",
+        "authentication",
+        "fuzzing",
+        "denial of service",
+        "nuclei",
+        "nikto",
+        "3001"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q3",
+      "question": "How would you defend this report's evidence chain if a reviewer asked you to prove a specific finding?",
+      "guidance": "Walk the chain: finding in the final report, numbered evidence index entry, the evidence/ file, the raw artifact under reports/raw/, and the exact command plus timestamp that produced it. Explain that an untraceable claim must be labelled unverified, and that hand-edited or fabricated artifacts break the chain permanently.",
+      "type": "keywords",
+      "expected_keywords": [
+        "evidence index",
+        "reports/raw",
+        "command",
+        "timestamp",
+        "unverified",
+        "fabricat",
+        "chain"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "Authorized local-only use against http://localhost:3001. This run-all pass is the widest activity in the lab and still stays inside the safe profiles the lab pins: ZAP baseline only, nikto under the reduced tuning profile, nuclei with destructive tag families excluded and rate limited, nmap limited to a connect scan on port 3001, and the external custom-scanner used as-is. Never broaden any of those constraints, never add a target, and never point any tool at a public website, external domain, or arbitrary IP address. Reporting is documentation work: do not use the findings to exploit the application, access data, attempt credential attacks, establish persistence, escalate privileges, or degrade service availability.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I ran python -m bcssl run-all from the lab project root, let every tool finish, and recorded the start and end time of the pass."
+    },
+    {
+      "id": "c2",
+      "label": "I filed unmodified ex12- copies of every raw artifact into evidence/nmap/, evidence/zap/, evidence/nikto/, evidence/nuclei/ and evidence/custom-scanner/."
+    },
+    {
+      "id": "c3",
+      "label": "I wrote evidence/report/ex12-final-report.md with scope, methodology, tool inventory, root-cause-grouped findings in native tool vocabularies, confidence labels, my own remediation advice, residual risk, limitations and a numbered evidence index."
+    },
+    {
+      "id": "c4",
+      "label": "I added the ten-line executive summary, re-verified each finding against its raw artifact, marked anything unverifiable as 'unverified', and answered q1, q2 and q3."
+    }
+  ]
+}

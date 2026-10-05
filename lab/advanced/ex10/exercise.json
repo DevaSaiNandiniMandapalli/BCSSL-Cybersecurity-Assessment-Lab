@@ -1,0 +1,98 @@
+{
+  "id": "ex10",
+  "level": "advanced",
+  "title": "Custom Scanner Comparison",
+  "tool": "custom-scanner (vs zap, nikto, nuclei)",
+  "objective": "Run the full external custom-scanner with all of its modules enabled and position its output against the commercial and open-source tools already used, so you can defend where a home-grown scanner adds value and where it does not.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "Exercises 03, 05, 06, 07, 08 and 09 completed, with all four tools' raw reports saved under evidence/.",
+    "The standalone custom-scanner project (Project #08 Web Security Scanner) is installed and callable as an external subprocess. This lab does not modify or rewrite it.",
+    "You have read the scanner's own severity vocabulary: info, low, medium, high, critical.",
+    "OWASP Juice Shop is running on http://localhost:3001 and you have created the folder evidence/custom-scanner/."
+  ],
+  "command": "python -m bcssl run custom-scanner",
+  "expected_observation": "With no --modules flag, the lab runs the external scanner with its full default module set, which includes headers, paths and injection, and the lab parses the resulting HTML report into reports/raw/. The console should show the subprocess being launched, the report path, and a consolidated summary. Against Juice Shop you should typically see header findings, discovered paths, and injection-module output; the injection module issues probes, so record its results as tool-reported indicators only. Use the scanner's own severity vocabulary (info/low/medium/high/critical) and do not translate it into ZAP's 0-3 scale or a CVSS score without saying that you did. Never assume the finding count, and never edit the HTML report.",
+  "student_task": [
+    "Run the exact command above from the lab project root and keep the complete console log.",
+    "Save the scanner's unmodified HTML report to evidence/custom-scanner/ex10-full-report.html.",
+    "From the report, list the findings grouped by module (headers, paths, injection), with each finding's scanner-assigned severity and, where present, the request or URL it refers to.",
+    "Build a coverage comparison in evidence/custom-scanner/ex10-coverage-notes.md with four columns (finding theme, custom-scanner, zap, nikto, nuclei) using the saved evidence from exercises 05 to 09, and mark which themes only the custom-scanner surfaced.",
+    "Write one short paragraph on the single biggest limitation of the custom-scanner compared with the other three tools, backed by something you actually observed in the output."
+  ],
+  "evidence_requirement": [
+    "File evidence/custom-scanner/ex10-full-report.html containing the unmodified HTML report from the full-module run.",
+    "File evidence/custom-scanner/ex10-coverage-notes.md containing your module-grouped findings list and your four-tool coverage comparison.",
+    "A written statement identifying at least one theme that only the custom-scanner surfaced, plus one concrete limitation you observed.",
+    "These filenames must be referenced in the evidence index of your final report (Exercise 12)."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What does the custom-scanner's full run add on top of the headers-only and paths-only runs you did earlier?",
+      "guidance": "Compare the modules actually executed and the resulting sections of the report. Explain that module composition changes request volume and the breadth of coverage, and that running all modules together makes it harder to attribute a finding to a specific check, which is one argument for module-scoped runs in an assessment.",
+      "type": "keywords",
+      "expected_keywords": [
+        "injection",
+        "headers",
+        "paths",
+        "module",
+        "request volume",
+        "coverage",
+        "attribut"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "Where does the custom-scanner outperform or underperform ZAP, nikto and nuclei on this target, based on your evidence?",
+      "guidance": "Use your coverage notes. Reasonable observations: a purpose-built scanner can produce cleaner, more opinionated header findings or try its own wordlist that crawler-driven tools miss, while typically lacking the maintained template library of nuclei, the per-product test catalog of nikto, and the crawling and rule depth of ZAP. Base every claim on output you actually saw, and say 'not observed' rather than inventing a gap.",
+      "type": "keywords",
+      "expected_keywords": [
+        "wordlist",
+        "template",
+        "nikto",
+        "zap",
+        "nuclei",
+        "not observed",
+        "coverage"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q3",
+      "question": "Why must severity labels from different tools not be merged into one number without a stated mapping?",
+      "guidance": "Explain that the scanner's info/low/medium/high/critical labels, ZAP's 0-3 Informational-to-High scale, nikto's item output and nuclei template severities are each defined differently and none is a CVSS base score. Converting between them invents precision; the defensible approach is to report each tool's label, group findings by root cause, and justify any overall severity with an impact argument.",
+      "type": "keywords",
+      "expected_keywords": [
+        "cvss",
+        "vocabulary",
+        "mapping",
+        "invent",
+        "precision",
+        "root cause",
+        "impact"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "Authorized local-only use against http://localhost:3001. The custom-scanner is an existing separate project that must be invoked only through the lab; never edit its source, never extend it with new intrusive checks, and never point it at an external host, public domain, or arbitrary IP address. The injection module issues probe payloads against the local vulnerable app by design, so do not point those probes anywhere else, do not chain them into exploitation, and do not use any result to access data, credentials, or functionality beyond what the lab already exposes.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I ran python -m bcssl run custom-scanner from the lab project root with no module restriction and kept the console log."
+    },
+    {
+      "id": "c2",
+      "label": "I saved the unmodified HTML report to evidence/custom-scanner/ex10-full-report.html and grouped its findings by module with the scanner's own severity labels."
+    },
+    {
+      "id": "c3",
+      "label": "I completed the four-tool coverage comparison in evidence/custom-scanner/ex10-coverage-notes.md using evidence from exercises 05 to 09."
+    },
+    {
+      "id": "c4",
+      "label": "I wrote my own limitation paragraph with a cited observation, explained why severities must not be merged silently, and answered q1, q2 and q3."
+    }
+  ]
+}

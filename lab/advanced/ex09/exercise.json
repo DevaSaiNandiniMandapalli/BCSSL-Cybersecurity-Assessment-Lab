@@ -1,0 +1,96 @@
+{
+  "id": "ex09",
+  "level": "advanced",
+  "title": "Nuclei Controlled Assessment",
+  "tool": "nuclei",
+  "objective": "Run a template-driven nuclei assessment with the destructive tag families excluded and rate limiting applied, and read JSONL findings by templateID, matched-at URL and info.severity.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "Exercises 05 through 08 completed, so you already know what ZAP, nikto and the custom-scanner each detect.",
+    "Nuclei is installed and templates are updated for the local lab environment; run nuclei -version and record it.",
+    "You understand the tag exclusion list in this exercise: dos, fuzz, intrusion, headless, bruteforce, brutespray and code are excluded, and the run is rate limited.",
+    "OWASP Juice Shop is running on http://localhost:3001 and you have created the folder evidence/nuclei/."
+  ],
+  "command": "python -m bcssl run nuclei",
+  "expected_observation": "The lab runs nuclei in template mode against http://localhost:3001 with -severity info,low,medium,high,critical, with the destructive tag families (dos, fuzz, intrusion, headless, bruteforce, brutespray, code) excluded and rate limiting applied, writing one JSON object per line to reports/raw/. Each finding carries a templateID, the matched-at URL, and an info.severity value. Against Juice Shop you should typically see template matches relating to technology detection, exposed files or directories, missing security headers, or misconfiguration, with severities spread across the informational-to-critical vocabulary. Because destructive templates are excluded you should not see denial-of-service, fuzzing, brute-force, code-execution or intrusion-style results. Record what actually matched; template availability and application version both change, so never quote a finding count you did not observe.",
+  "student_task": [
+    "Run the exact command above from the lab project root and let nuclei finish.",
+    "Open the JSONL output line by line and, for every line, record the templateID, the matched-at URL, the info.severity, and the info.name.",
+    "Build a table in evidence/nuclei/ex09-finding-notes.md sorted from the highest severity you actually observed to the lowest, and count how many distinct templateIDs fired.",
+    "Identify the templates whose IDs suggest a behaviour that could change application state, and write one line each on why that category is excluded in this lab.",
+    "Save the unmodified JSONL output to evidence/nuclei/ex09-nuclei-findings.jsonl."
+  ],
+  "evidence_requirement": [
+    "File evidence/nuclei/ex09-nuclei-findings.jsonl containing the unmodified nuclei JSONL output.",
+    "File evidence/nuclei/ex09-finding-notes.md containing your sorted table: templateID, matched-at URL, info.severity, info.name, plus your distinct-templateID count.",
+    "A written statement naming the excluded tag families (dos, fuzz, intrusion, headless, bruteforce, brutespray, code) and the rate-limiting behaviour in effect.",
+    "These filenames must be referenced in the evidence index of your final report (Exercise 12)."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Which templates matched, and how do you read a nuclei JSONL finding line?",
+      "guidance": "Explain the fields you used: templateID identifies the check, info.name is the human label, info.severity is the vendor-assigned severity, and matched-at is the exact URL that satisfied the matchers. Note that matched-at is also the source of false positives if a template matches too broadly.",
+      "type": "keywords",
+      "expected_keywords": [
+        "templateid",
+        "matched-at",
+        "info.name",
+        "jsonl",
+        "severity"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "Why were the dos, fuzz, intrusion, headless, bruteforce, brutespray and code tags excluded, and what risk would including them have introduced?",
+      "guidance": "Explain each briefly: dos degrades or stops the target, fuzz is unbounded input generation that can corrupt state, headless launches real browsers, bruteforce and brutespray attempt credential guessing, code executes commands, and intrusion families attempt unauthorised access. Including any of them would push a template scanner from assessment into active attack.",
+      "type": "keywords",
+      "expected_keywords": [
+        "dos",
+        "fuzz",
+        "intrusion",
+        "headless",
+        "bruteforce",
+        "brutespray",
+        "code"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q3",
+      "question": "How does rate limiting change the meaning of a nuclei run, and what happens to detection coverage when you lower the rate?",
+      "guidance": "Explain that a low rate keeps the load gentle on the local application and avoids tripping app-level protections or producing errors that look like findings, but it makes the run slower and can time out on long crawls. Coverage itself depends on the template set and matcher logic, not the rate, but aggressive rates can cause dropped connections and missed or misleading results.",
+      "type": "keywords",
+      "expected_keywords": [
+        "rate limit",
+        "load",
+        "slower",
+        "timeout",
+        "coverage",
+        "template",
+        "dropped"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "Authorized local-only use against http://localhost:3001. This run is deliberately constrained: destructive tag families are excluded and rate limiting is in force. Do not remove the exclusions, do not run with -include-tags for intrusive categories, and never pass a different -u value pointing at a public website, external domain, or arbitrary IP address. Template scanning must stay non-destructive here: no denial-of-service, no fuzzing, no brute-force credential testing, no command execution, and no attempts to access data you were not given.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I ran python -m bcssl run nuclei from the lab project root and kept the lab's console log."
+    },
+    {
+      "id": "c2",
+      "label": "I opened the JSONL output and transcribed templateID, matched-at URL, info.severity and info.name for every finding line."
+    },
+    {
+      "id": "c3",
+      "label": "I saved the unmodified JSONL to evidence/nuclei/ex09-nuclei-findings.jsonl and wrote my severity-sorted table with a distinct templateID count to evidence/nuclei/ex09-finding-notes.md."
+    },
+    {
+      "id": "c4",
+      "label": "I wrote the excluded-tag rationale and the rate-limiting note, and answered q1, q2 and q3 in my own words."
+    }
+  ]
+}

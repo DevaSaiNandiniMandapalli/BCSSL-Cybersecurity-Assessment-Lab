@@ -1,0 +1,96 @@
+{
+  "id": "ex06",
+  "level": "intermediate",
+  "title": "Nikto Web Server Assessment",
+  "tool": "nikto",
+  "objective": "Run the lab's standard nikto profile (tuning 1237bd), learn which intrusive test categories have been deliberately removed, and convert raw nikto output into a defensible finding list.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "Exercise 04 completed and its tuned nikto evidence saved to evidence/nikto/.",
+    "Nikto is installed and on your PATH, and you already recorded its version.",
+    "OWASP Juice Shop is running on http://localhost:3001.",
+    "You have created the folder evidence/nikto/ for this exercise's outputs."
+  ],
+  "command": "python -m bcssl run nikto",
+  "expected_observation": "The lab runs: nikto -h http://localhost:3001 -Tuning 1237bd -Format json -output <out>.json -nointeractive. The tuning string 1237bd enables interesting files and sites, misconfiguration and information disclosure checks, server info retrieval, software identification, and XSS-oriented checks. The lab deliberately excludes the intrusive categories, and you should be able to prove it from the echoed command line: 0 file upload, 4 injection, 5 remote file retrieval, 6 denial of service, 8 command execution, 9 SQL injection, a authentication bypass, and c remote source inclusion are all absent. The output should report the target, the server header, items found with their HTTP codes, and a count of items tested. You should typically see disclosure or misconfiguration items against Juice Shop. Treat the specific item list as an observation to record rather than an expected answer.",
+  "student_task": [
+    "Run the exact command above from the lab project root.",
+    "Copy the exact nikto invocation that the lab printed, highlight the -Tuning value, and mark which of the letters a, 4, 5, 6, 8, 9 and c are missing.",
+    "Read the JSON output under reports/raw/ and list every finding that returned a 200 response code, with the item identifier, the path or URL, and a plain-English description.",
+    "For each 200 item, decide and record whether it is a genuine unauthenticated information disclosure, a benign known file, or a false positive, and justify the decision in one line.",
+    "Save the unmodified JSON to evidence/nikto/ex06-nikto-report.json and your classified findings table to evidence/nikto/ex06-nikto-findings.md."
+  ],
+  "evidence_requirement": [
+    "File evidence/nikto/ex06-nikto-report.json containing the unmodified JSON output of this nikto run.",
+    "File evidence/nikto/ex06-nikto-findings.md containing your findings table: item id, path or URL, HTTP code, classification, and one-line justification.",
+    "A pasted copy of the exact nikto command line, with an annotated note listing which tuning letters were deliberately excluded and why.",
+    "These filenames must be referenced in the evidence index of your final report (Exercise 12)."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Which test categories does the tuning value 1237bd enable, and what is the practical effect of that choice on request volume and impact?",
+      "guidance": "Enumerate 1 interesting files and sites, 2 misconfiguration and information disclosure, 3 information disclosure, 7 server and software information retrieval, b software identification, d and the XSS-oriented entry. Explain that this keeps the assessment read-mostly and moderate in volume compared with a default run.",
+      "type": "keywords",
+      "expected_keywords": [
+        "interesting files",
+        "misconfiguration",
+        "information disclosure",
+        "software identification",
+        "xss",
+        "request volume",
+        "read-mostly"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "Why does this lab exclude tuning letters 4 (injection), 9 (SQL injection), 6 (denial of service), 8 (command execution), 5 (remote file retrieval), 0 (file upload), a (authentication bypass) and c (remote source inclusion)?",
+      "guidance": "Explain that these categories move from observation into active attack behaviour: injection and command execution attempts are exploitation, remote file retrieval and file upload can change server state, and denial of service deliberately degrades the target. Excluding them keeps the engagement non-destructive, keeps evidence interpretable for a learning context, and respects the authorized-testing rules of the lab.",
+      "type": "keywords",
+      "expected_keywords": [
+        "exploitation",
+        "denial of service",
+        "sql injection",
+        "command execution",
+        "file upload",
+        "non-destructive"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q3",
+      "question": "How do you decide whether a nikto item with HTTP 200 is a real information-disclosure finding or noise?",
+      "guidance": "Walk through the decision: does the path expose something not intended for public access, does it contain version or configuration detail that narrows an attacker's options, is it a generic well-known file that adds nothing, and would the same item appear on any site of this product. Record the classification and the reason, and treat 'benign known file' as a legitimate conclusion rather than a failure.",
+      "type": "keywords",
+      "expected_keywords": [
+        "information disclosure",
+        "benign",
+        "false positive",
+        "intended for public",
+        "classification",
+        "version"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "Authorized local-only use against http://localhost:3001. The tuning profile used here excludes intrusive categories on purpose; do not add tuning letters back, do not switch nikto out of -nointeractive batch mode into interactive probing, and never retarget it at any host you do not own. Do not follow a discovery lead into exploitation, upload, injection, credential testing, or denial-of-service testing, and do not point nikto at a public website, external domain, or arbitrary IP address.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I ran python -m bcssl run nikto from the lab project root and kept the lab's console output."
+    },
+    {
+      "id": "c2",
+      "label": "I pasted the exact nikto command line into my notes and annotated which tuning letters (a, 4, 5, 6, 8, 9, c) were excluded and why."
+    },
+    {
+      "id": "c3",
+      "label": "I saved the unmodified JSON to evidence/nikto/ex06-nikto-report.json and my classified findings table to evidence/nikto/ex06-nikto-findings.md."
+    },
+    {
+      "id": "c4",
+      "label": "I classified every 200 item as disclosure, benign or false positive with a written reason, and answered q1, q2 and q3."
+    }
+  ]
+}

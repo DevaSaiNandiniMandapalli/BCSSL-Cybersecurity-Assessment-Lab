@@ -1,0 +1,25 @@
+{
+  "tool": "nmap",
+  "purpose": "Local host, port and service discovery",
+  "executable": "nmap",
+  "version_args": ["--version"],
+  "transport": "auto",
+  "docker_image": "instrumentisto/nmap:latest",
+  "parser": "bcssl.parsers.nmap",
+  "report_filename": "nmap.xml",
+  "scope": "Loopback host only, and only the ports listed in tools.nmap.ports (3001 by default).",
+  "safe_settings": {
+    "scan_type": "-sT",
+    "skip_host_discovery": "-Pn",
+    "service_detection": "-sV",
+    "never_used": ["-sS (needs root)", "-O (OS fingerprinting)", "-A (aggressive scripts)", "-sU (UDP)"]
+  },
+  "severity_mapping": "All findings are informational: port discovery is not vulnerability assessment.",
+  "notes": "Produces INFO findings only. A closed or filtered port is recorded as a note, not a finding.",
+  "install": {
+    "windows": "winget install Insecure.Nmap",
+    "macos": "brew install nmap",
+    "linux": "sudo apt-get install nmap",
+    "generic": "Install Nmap from https://nmap.org/download.html, or run it through the Docker image instrumentisto/nmap."
+  }
+}

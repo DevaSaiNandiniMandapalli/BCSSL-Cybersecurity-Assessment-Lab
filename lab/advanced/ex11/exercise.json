@@ -1,0 +1,97 @@
+{
+  "id": "ex11",
+  "level": "advanced",
+  "title": "Finding Correlation",
+  "tool": "correlation engine (lab-cli report)",
+  "objective": "Use the lab's correlation engine to combine every saved raw result into one deduplicated, confidence-annotated view, and learn why confirmed and single-tool observations must be presented differently.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "Exercises 02 through 10 completed, with each tool's raw output saved under reports/raw/ and copied into the matching evidence/ subdirectory.",
+    "At least two tools have produced results, otherwise the correlation view will have nothing to compare and the exercise teaches nothing.",
+    "You have created the folder evidence/report/ for correlation notes.",
+    "OWASP Juice Shop is running on http://localhost:3001."
+  ],
+  "command": "python -m bcssl report",
+  "expected_observation": "The lab reads the raw artifacts already under reports/raw/ (nmap XML, ZAP HTML/JSON, nikto JSON, custom-scanner HTML, nuclei JSONL), normalizes each finding into a common theme, deduplicates near-identical entries, and prints a consolidated correlation view plus a consolidated report artifact. Each entry is labelled by the tools that saw it: a theme reported by 2 or more tools is labelled \"Confirmed by multiple tools\", and a theme reported by exactly one tool is labelled \"Single-tool observation\". You should typically see missing security headers as a multi-tool theme, and some single-tool themes depending on which runs actually produced results. If a tool produced no results, that is reported as a gap, not as a clean bill of health. The engine never fabricates findings to fill the view.",
+  "student_task": [
+    "Run the exact command above from the lab project root and capture the full console output.",
+    "Save the console output unmodified to evidence/report/ex11-correlation-view.txt.",
+    "Build a table in evidence/report/ex11-correlation-table.md listing every theme the engine produced, with columns for: theme, tools that reported it, the label the engine assigned (Confirmed by multiple tools / Single-tool observation), and the source artifact filename for each contributing tool.",
+    "Write a short interpretation paragraph explaining which theme you consider the strongest in the whole assessment and why, quoting at least two independent tool artifacts.",
+    "Note any tool that contributed zero findings and state plainly what a gap means for the confidence of the report."
+  ],
+  "evidence_requirement": [
+    "File evidence/report/ex11-correlation-view.txt containing the unmodified correlation console output.",
+    "File evidence/report/ex11-correlation-table.md containing your theme table with the engine's own labels and per-tool source artifact filenames.",
+    "A written interpretation naming your strongest theme with citations to at least two independent tool artifacts.",
+    "A statement naming any tool with zero findings and what that gap implies for confidence.",
+    "These filenames must be referenced in the evidence index of your final report (Exercise 12)."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What does the engine mean by \"Confirmed by multiple tools\", and why is that different from \"found by one tool\"?",
+      "guidance": "Explain that the label reflects independent corroboration: at least two tools, with different rule catalogs and request patterns, reached the same conclusion. Explain that single-tool observations are still worth reporting but carry a higher chance of being a tool-specific artefact or a false positive, and therefore need different wording and usually a second look.",
+      "type": "keywords",
+      "expected_keywords": [
+        "confirmed by multiple tools",
+        "at least two",
+        "single-tool observation",
+        "corroborat",
+        "independent",
+        "false positive"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "Why does deduplication matter, and what mistakes can normalization introduce?",
+      "guidance": "Explain that without deduplication, one weakness seen by three tools looks like three weaknesses and inflates counts and perceived risk. Then explain the failure modes of normalization: mapping two different severity vocabularies onto one label, merging findings that only look similar, or dropping a distinct instance because its path differs. Normalization is an editorial decision and must be documented.",
+      "type": "keywords",
+      "expected_keywords": [
+        "deduplicat",
+        "inflate",
+        "normalization",
+        "merge",
+        "severity vocabulary",
+        "document"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q3",
+      "question": "A theme appears in the correlation view but one contributing tool shows no evidence file. How should you handle that in the report?",
+      "guidance": "Explain that the correlation view is derived from raw artifacts, so a missing artifact means the claim is not traceable and the finding must be downgraded to unconfirmed or excluded until the artifact is produced. Describe checking reports/raw/ for the file, re-running that single tool through the lab if needed, and never fabricating or hand-writing a missing evidence file to make the view look complete.",
+      "type": "keywords",
+      "expected_keywords": [
+        "unconfirmed",
+        "traceab",
+        "reports/raw",
+        "re-run",
+        "fabricat",
+        "evidence",
+        "exclude"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "Authorized local-only use against http://localhost:3001. The correlation step is an offline analysis of results already collected from the authorized local target; it issues no new attack traffic and must not be turned into a re-scan against anything. Never add or hand-craft raw result files to make the correlation view look more complete, never point the report or any tool at an external host, public domain, or arbitrary IP address, and never use correlated findings to drive exploitation, credential testing, data extraction, or denial-of-service activity.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I ran python -m bcssl report from the lab project root after completing at least two prior tool exercises."
+    },
+    {
+      "id": "c2",
+      "label": "I saved the unmodified correlation console output to evidence/report/ex11-correlation-view.txt."
+    },
+    {
+      "id": "c3",
+      "label": "I built the theme table at evidence/report/ex11-correlation-table.md using the engine's own labels and citing the source artifact filename for every contributing tool."
+    },
+    {
+      "id": "c4",
+      "label": "I wrote my strongest-theme interpretation with at least two independent citations, named any zero-finding tool and its effect on confidence, and answered q1, q2 and q3."
+    }
+  ]
+}

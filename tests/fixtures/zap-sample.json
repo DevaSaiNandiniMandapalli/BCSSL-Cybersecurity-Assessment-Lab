@@ -1,0 +1,89 @@
+{
+  "@version": "2.14.0",
+  "site": [
+    {
+      "name": "http://localhost:3001",
+      "host": "localhost",
+      "port": "3001",
+      "ssl": "false"
+    }
+  ],
+  "alerts": [
+    {
+      "pluginId": "10038",
+      "alert": "Content Security Policy (CSP) Header Not Set",
+      "name": "Content Security Policy (CSP) Header Not Set",
+      "riskcode": "2",
+      "riskdesc": "Medium (High)",
+      "confidence": "2",
+      "desc": "No Content Security Policy (CSP) header was found in the response.",
+      "solution": "Configure a Content Security Policy via the HTTP response header.",
+      "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+      "cweid": "693",
+      "wasc": "15",
+      "url": "http://localhost:3001/",
+      "method": "GET",
+      "param": "",
+      "attack": "",
+      "evidence": "<html><head></head><body>Local Lab Stub</body></html>",
+      "sourceid": "3"
+    },
+    {
+      "pluginId": "10063",
+      "alert": "Permissions Policy Header Not Set",
+      "name": "Permissions Policy Header Not Set",
+      "riskcode": "1",
+      "riskdesc": "Low (Medium)",
+      "confidence": "3",
+      "desc": "Permissions Policy header was not present in the response.",
+      "solution": "Define a Permissions-Policy header.",
+      "reference": "",
+      "cweid": "693",
+      "wasc": "15",
+      "url": "http://localhost:3001/",
+      "method": "GET",
+      "param": "",
+      "attack": "",
+      "evidence": "",
+      "sourceid": "3"
+    },
+    {
+      "pluginId": "10020",
+      "alert": "Anti-clickjacking Header",
+      "name": "Anti-clickjacking Header",
+      "riskcode": "2",
+      "riskdesc": "Medium (High)",
+      "confidence": "2",
+      "desc": "X-Frame-Options header is not included in the response.",
+      "solution": "Ensure X-Frame-Options or a CSP frame-ancestors directive is set.",
+      "reference": "https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html",
+      "cweid": "1021",
+      "wasc": "15",
+      "url": "http://localhost:3001/",
+      "method": "GET",
+      "param": "",
+      "attack": "",
+      "evidence": "",
+      "sourceid": "3"
+    },
+    {
+      "pluginId": "10035",
+      "alert": "Strict-Transport-Security Header Not Set",
+      "name": "Strict-Transport-Security Header Not Set",
+      "riskcode": "1",
+      "riskdesc": "Low (High)",
+      "confidence": "3",
+      "desc": "HSTS header was not found in the response.",
+      "solution": "Ensure the web server sends HSTS headers.",
+      "reference": "",
+      "cweid": "319",
+      "wasc": "15",
+      "url": "http://localhost:3001/",
+      "method": "GET",
+      "param": "",
+      "attack": "",
+      "evidence": "",
+      "sourceid": "3"
+    }
+  ]
+}

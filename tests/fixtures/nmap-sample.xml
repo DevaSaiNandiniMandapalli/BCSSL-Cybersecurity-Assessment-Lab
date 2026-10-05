@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sT -sV -Pn -p 3001 --reason -oX nmap.xml localhost" start="1759000000" version="7.94" xmloutputversion="1.05">
+<scaninfo type="connect" protocol="tcp" numservices="1" services="3001"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1759000000" endtime="1759000003"><status state="up" reason="localhost-response"/>
+<address addr="127.0.0.1" addrtype="ipv4"/>
+<hostnames><hostname name="localhost" type="user"/><hostname name="localhost" type="PTR"/></hostnames>
+<ports>
+<extraports state="closed" count="65534">
+<extrareasons reason="resets" count="65534"/>
+</extraports>
+<port protocol="tcp" portid="3001"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http" product="Node.js" version="4.0.0" extrainfo="Express" method="probed" conf="10"><cpe>cpe:/a:nodejs:node.js:4.0.0</cpe></service></port>
+</ports>
+<hostscript><script id="smb-os-discovery" output="OS fingerprint not required for this fixture"/></hostscript>
+</host>
+<runstats><finished time="1759000003" elapsed="3.00" summary="Nmap done at Mon Sep 29 12:26:43 2025; 1 IP addresses (1 host up) scanned in 3.00 seconds" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

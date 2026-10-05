@@ -1,0 +1,56 @@
+# BCSSL Cybersecurity Assessment Lab - authorized training target
+#
+# This compose file defines the ONLY target this lab assesses:
+#
+#     AUTHORIZED TARGET: http://localhost:3001
+#
+# OWASP Juice Shop is a deliberately vulnerable training application. It is
+# published on the loopback interface only, so it is unreachable from other
+# machines on the network.
+#
+# Usage:
+#   docker compose -f target/docker-compose.yml up -d
+#   docker compose -f target/docker-compose.yml ps
+#   docker compose -f target/docker-compose.yml down
+#
+# The lab's own scripts wrap these commands:
+#   scripts/start-target.ps1
+#   scripts/stop-target.ps1
+#   scripts/check-target.ps1
+
+name: bcssl-lab-target
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    container_name: bcssl-juiceshop
+    # Bound to loopback only. Do not change this to 0.0.0.0: exposing a
+    # deliberately vulnerable application on a network is unsafe.
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      # Keep the lab instance predictable and free of external challenges.
+      NODE_ENV: ctf
+      # Disable the optional LLM-backed challenges so the lab does not depend
+      # on any external service.
+      ENABLE_CHALLENGE: all
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O /dev/null http://localhost:3000/rest/products/search?q=test
+          || exit 1
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes: {}

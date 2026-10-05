@@ -1,0 +1,60 @@
+{
+  "_comment": [
+    "Instructor override example. Copy to instructor-config.json and pass it with:",
+    "  python -m bcssl --config config/instructor-config.json <command>",
+    "",
+    "SAFETY: only loopback hosts and instructor-enabled loopback ports may be added.",
+    "Adding a public host here does not bypass the validator's loopback requirement",
+    "unless tools.target.allow_non_loopback is also set, which this lab does not support."
+  ],
+
+  "lab": {
+    "instructor": "Replace with the instructor's name"
+  },
+
+  "target": {
+    "authorized_url": "http://localhost:3001",
+    "allowed_hosts": ["localhost", "127.0.0.1", "::1"],
+    "allowed_ports": [3001, 8080],
+    "require_loopback": true
+  },
+
+  "tools": {
+    "nmap": {
+      "ports": "3001,8080",
+      "timeout_seconds": 600
+    },
+    "zap": {
+      "mode": "baseline",
+      "alert_threshold": 0,
+      "spider_max_depth": 5,
+      "request_timeout_seconds": 20,
+      "timeout_seconds": 1200
+    },
+    "nikto": {
+      "tuning": "1237b",
+      "timeout_seconds": 900
+    },
+    "nuclei": {
+      "severities": ["low", "medium", "high", "critical"],
+      "rate_limit": 3,
+      "concurrency": 3,
+      "timeout_seconds": 1200
+    },
+    "custom-scanner": {
+      "project_root": "C:\\Users\\devas\\Documents\\Cybersecurity\\Web-Security-Scanner",
+      "python": "auto",
+      "modules": ["headers", "paths"]
+    }
+  },
+
+  "pipeline": {
+    "severity_floor": "LOW",
+    "evidence_excerpt_chars": 2000
+  },
+
+  "web": {
+    "host": "127.0.0.1",
+    "port": 8766
+  }
+}

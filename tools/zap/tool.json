@@ -1,0 +1,24 @@
+{
+  "tool": "zap",
+  "purpose": "Authorized web application assessment (passive + controlled active)",
+  "executable": "zap-baseline.py",
+  "version_args": ["-version"],
+  "transport": "auto",
+  "docker_image": "ghcr.io/zaproxy/zaproxy:stable",
+  "parser": "bcssl.parsers.zap",
+  "report_filename": "zap-report.json",
+  "scope": "The authorized target only. The spider is bounded by spider.maxDepth.",
+  "modes": {
+    "baseline": "ZAP baseline scan: passive rules plus a small, curated set of low-impact active rules.",
+    "passive": "Adds spider.active=false so only passive crawling and passive rules run."
+  },
+  "severity_mapping": "riskcode 3=High, 2=Medium, 1=Low, 0=Informational. ZAP has no CRITICAL level and the lab never manufactures one.",
+  "prerequisites": "A Java runtime is required. Docker image ghcr.io/zaproxy/zaproxy:stable bundles its own JRE.",
+  "notes": "Alerts are indicators requiring manual verification; ZAP does not prove exploitability.",
+  "install": {
+    "windows": "winget install zaproxy.zaproxy.stable  (or start Docker Desktop and use the ghcr.io/zaproxy/zaproxy:stable image)",
+    "macos": "brew install --cask zaproxy/zaproxy",
+    "linux": "Download from https://www.zaproxy.org/download/ or use the Docker image",
+    "generic": "ZAP ships zap-baseline.py inside its installation directory; add that directory to PATH."
+  }
+}

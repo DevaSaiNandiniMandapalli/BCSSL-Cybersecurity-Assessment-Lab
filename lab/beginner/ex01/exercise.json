@@ -1,0 +1,97 @@
+{
+  "id": "ex01",
+  "level": "beginner",
+  "title": "HTTP and Target Validation",
+  "tool": "lab-cli",
+  "objective": "Confirm that http://localhost:3001 is the only authorized target, verify it is reachable over HTTP, and capture a preflight baseline that every later exercise in this track depends on.",
+  "authorized_target": "http://localhost:3001",
+  "prerequisites": [
+    "OWASP Juice Shop is running locally. Open http://localhost:3001 in a browser and confirm the welcome page loads.",
+    "You are working from the lab project root: C:\\Users\\devas\\Documents\\Cybersecurity\\BCSSL-Cybersecurity-Assessment-Lab",
+    "The lab CLI is importable. Run python -m bcssl --help and confirm it prints usage.",
+    "You have created the folders reports/raw/ and evidence/lab-cli/."
+  ],
+  "command": "python -m bcssl validate-target --url http://localhost:3001",
+  "expected_observation": "A short preflight report that breaks the URL into its components (scheme http, host localhost, port 3001), confirms the host resolves to the local loopback address, performs an HTTP reachability check and prints a response status code (a healthy Juice Shop normally answers 200 on /), and then prints an explicit scope confirmation naming http://localhost:3001 as the permitted target. If Juice Shop is not running, the same command should instead report the target as unreachable and stop before any scan work. Either outcome is a valid observation as long as you record what actually happened; do not fabricate a successful preflight.",
+  "student_task": [
+    "Open http://localhost:3001 in a browser, confirm the Juice Shop welcome page renders, and close the tab.",
+    "Run the exact command above from the lab project root and read the entire output before doing anything else.",
+    "Record the scheme, resolved host address, port, and HTTP status code printed by the tool, plus the exact authorization or scope line.",
+    "Save the complete, unmodified preflight output to evidence/lab-cli/ex01-validate-target.txt.",
+    "Write a short note stating whether the target was reachable. If it was not, write what you did about it (for example, starting the local container) and record that the first preflight failed."
+  ],
+  "evidence_requirement": [
+    "File evidence/lab-cli/ex01-validate-target.txt containing the complete preflight output from the command, unmodified.",
+    "A quoted HTTP status code and resolved host/port from that same output in your notes.",
+    "A one-line statement confirming you verified the target yourself in a browser at http://localhost:3001.",
+    "This filename must be referenced in the evidence index of your final report (Exercise 12)."
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Which URL components did the preflight report confirm, and why does the lab check the port separately instead of trusting the host alone?",
+      "guidance": "Look for lines naming the scheme, the host, and the port. Explain that localhost:3001 is the only authorized endpoint on this machine: the same host name can serve other ports, and any port other than 3001 is outside the scope of this engagement, so host-only validation would silently widen the blast radius.",
+      "type": "keywords",
+      "expected_keywords": [
+        "scheme",
+        "host",
+        "port",
+        "3001",
+        "scope",
+        "blast radius"
+      ],
+      "min_keywords": 3
+    },
+    {
+      "id": "q2",
+      "question": "What HTTP status code did the target return, and what does that single value tell you about whether Juice Shop was actually serving during your preflight?",
+      "guidance": "A 200 response on / indicates the application was up and answering. A connection error, timeout, or refused connection means nothing was listening on 3001. Explain the difference between 'the tool ran' and 'the target answered'.",
+      "type": "keywords",
+      "expected_keywords": [
+        "200",
+        "status code",
+        "http",
+        "juice shop",
+        "reachable",
+        "refused",
+        "timeout"
+      ],
+      "min_keywords": 2
+    },
+    {
+      "id": "q3",
+      "question": "Suppose validate-target reports the target unreachable. What is the correct response, and why must that failure be recorded rather than quietly retried until it succeeds?",
+      "guidance": "The correct response is to start the local Juice Shop, then re-run the preflight and keep both outputs. Explain that an audit trail is the deliverable: a hidden failed attempt destroys the timeline, and later findings cannot be trusted if you cannot say when the target was first confirmed reachable.",
+      "type": "keywords",
+      "expected_keywords": [
+        "start",
+        "re-run",
+        "rerun",
+        "run again",
+        "audit trail",
+        "record",
+        "evidence"
+      ],
+      "min_keywords": 3
+    }
+  ],
+  "safety_note": "This exercise contacts http://localhost:3001 and nothing else. It is authorized educational use against a deliberately vulnerable application running on your own machine. Do not substitute any other host, port, IP address, or domain; do not point this command at a public website, a colleague's machine, or a shared service. Preflight validation is a scope-control step, not a scanning step, and it performs no exploitation, data extraction, or credential testing.",
+  "checklist": [
+    {
+      "id": "c1",
+      "label": "I opened http://localhost:3001 in a browser myself and confirmed the Juice Shop welcome page renders."
+    },
+    {
+      "id": "c2",
+      "label": "I ran python -m bcssl validate-target --url http://localhost:3001 from the lab project root and read the whole output."
+    },
+    {
+      "id": "c3",
+      "label": "I saved the unmodified preflight output to evidence/lab-cli/ex01-validate-target.txt."
+    },
+    {
+      "id": "c4",
+      "label": "I recorded the status code and the authorization line in my notes, and I understand this exercise is not complete just because the command ran; completion needs my saved evidence and my written answers to q1, q2 and q3."
+    }
+  ]
+}

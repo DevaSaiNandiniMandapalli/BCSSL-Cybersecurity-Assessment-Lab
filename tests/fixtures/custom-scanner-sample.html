@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Scan Report - http://localhost:3001</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1b1f23;
+    --muted: #57606a;
+    --line: #d8dee4;
+    --panel: #f6f8fa;
+    --critical: #82071e;
+    --critical-bg: #ffebe9;
+    --high: #a40e26;
+    --high-bg: #ffebe9;
+    --medium: #7d4e00;
+    --medium-bg: #fff8c5;
+    --low: #0e5a8a;
+    --low-bg: #ddf4ff;
+    --info: #57606a;
+    --info-bg: #eef1f4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.15rem; margin: 2rem 0 .75rem; }
+  h3 { font-size: 1rem; margin: 0 0 .35rem; }
+  .meta { color: var(--muted); font-size: .875rem; margin: 0 0 1.5rem; }
+  .meta dt { font-weight: 600; }
+  .meta div { margin: .15rem 0; }
+  .notice {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--medium);
+    padding: .75rem 1rem;
+    border-radius: 4px;
+    margin: 1.25rem 0;
+    font-size: .875rem;
+  }
+  .notice strong { display: block; margin-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: .45rem .6rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: .875rem;
+  }
+  th { background: var(--panel); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .sev {
+    display: inline-block;
+    padding: .1rem .45rem;
+    border-radius: 3px;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .sev-critical { color: var(--critical); background: var(--critical-bg); }
+  .sev-high     { color: var(--high);     background: var(--high-bg); }
+  .sev-medium   { color: var(--medium);   background: var(--medium-bg); }
+  .sev-low      { color: var(--low);      background: var(--low-bg); }
+  .sev-info     { color: var(--info);     background: var(--info-bg); }
+  .finding {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    margin: .85rem 0;
+  }
+  .finding-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: baseline;
+    margin-bottom: .5rem;
+  }
+  .finding .module { color: var(--muted); font-size: .8rem; }
+  .finding p { margin: .4rem 0; }
+  dl { margin: .5rem 0 0; }
+  dt {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  dd { margin: .1rem 0 .6rem; font-size: .875rem; word-break: break-word; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8125rem;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .55rem .7rem;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .empty { color: var(--muted); font-style: italic; }
+  .errors li { margin: .2rem 0; font-size: .875rem; }
+  footer {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .8rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Web Application Security Report</h1>
+<div class="meta">
+  <div><strong>Target:</strong> http://localhost:3001</div>
+  <div><strong>Started:</strong> 2026-10-04T09:00:00Z</div>
+  <div><strong>Finished:</strong> 2026-10-04T09:00:07Z</div>
+  <div><strong>Findings:</strong> 3 &middot; <strong>Scan errors:</strong> 1</div>
+  <div>
+    <strong>Indicative qualitative score:</strong> Medium
+    (triage band 4.0 - 6.9 &mdash; not a CVSS score)
+  </div>
+</div>
+
+<div class="notice">
+  <strong>These are scanner indicators, not confirmed vulnerabilities.</strong>
+  Every item below is an automated observation that requires appropriate manual
+  verification before it is treated as a finding. Absence of an indicator does
+  not demonstrate the absence of a weakness. Qualitative scores are triage aids
+  and are not CVSS base scores.
+</div>
+
+<h2>Summary by severity</h2>
+<table>
+  <thead>
+    <tr><th>Severity</th><th>Label</th><th class="num">Count</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="sev sev-critical">Critical</span></td>
+      <td>critical</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-high">High</span></td>
+      <td>high</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-medium">Medium</span></td>
+      <td>medium</td>
+      <td class="num">1</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-low">Low</span></td>
+      <td>low</td>
+      <td class="num">1</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-info">Informational</span></td>
+      <td>info</td>
+      <td class="num">1</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Summary by module</h2>
+<table>
+  <thead>
+    <tr><th>Module</th><th class="num">Findings</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>headers</td><td class="num">2</td></tr>
+    <tr><td>paths</td><td class="num">1</td></tr>
+  </tbody>
+</table>
+
+<h2>Findings</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Severity</th><th>Module</th><th>Finding</th><th>URL</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="sev sev-medium">Medium</span></td>
+      <td>headers</td>
+      <td>Missing X-Frame-Options header</td>
+      <td>http://localhost:3001/</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-low">Low</span></td>
+      <td>headers</td>
+      <td>Missing Content-Security-Policy header</td>
+      <td>http://localhost:3001/</td>
+    </tr>
+    <tr>
+      <td><span class="sev sev-info">Informational</span></td>
+      <td>paths</td>
+      <td>Discoverable path: /robots.txt</td>
+      <td>http://localhost:3001/robots.txt</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Finding details</h2>
+<div class="finding">
+  <div class="finding-head">
+    <span class="sev sev-medium">Medium</span>
+    <h3>Missing X-Frame-Options header</h3>
+    <span class="module">headers</span>
+  </div>
+  <p>The response did not include an X-Frame-Options header, so framing is not restricted.</p>
+  <dl>
+    <dt>URL</dt>
+    <dd>http://localhost:3001/</dd>
+    <dt>Severity</dt>
+    <dd>medium &mdash; Medium (indicative band 4.0 - 6.9)</dd>
+    <dt>Evidence</dt>
+    <dd><pre>HTTP/1.1 200 OK
+Server: Express
+X-Powered-By: Express</pre></dd>
+    <dt>Remediation</dt>
+    <dd>Add X-Frame-Options: SAMEORIGIN or a CSP frame-ancestors directive.</dd>
+  </dl>
+</div>
+<div class="finding">
+  <div class="finding-head">
+    <span class="sev sev-low">Low</span>
+    <h3>Missing Content-Security-Policy header</h3>
+    <span class="module">headers</span>
+  </div>
+  <p>No CSP was returned.</p>
+  <dl>
+    <dt>URL</dt>
+    <dd>http://localhost:3001/</dd>
+    <dt>Severity</dt>
+    <dd>low &mdash; Low (indicative band 0.1 - 3.9)</dd>
+    <dt>Evidence</dt>
+    <dd><pre>HTTP/1.1 200 OK</pre></dd>
+    <dt>Remediation</dt>
+    <dd>Define a restrictive Content-Security-Policy.</dd>
+  </dl>
+</div>
+<div class="finding">
+  <div class="finding-head">
+    <span class="sev sev-info">Informational</span>
+    <h3>Discoverable path: /robots.txt</h3>
+    <span class="module">paths</span>
+  </div>
+  <p>Path responded with HTTP 200.</p>
+  <dl>
+    <dt>URL</dt>
+    <dd>http://localhost:3001/robots.txt</dd>
+    <dt>Severity</dt>
+    <dd>info &mdash; Informational (indicative band No band)</dd>
+    <dt>Evidence</dt>
+    <dd><pre>User-agent: *
+Disallow: /</pre></dd>
+    <dt>Remediation</dt>
+    <dd>no recommendation recorded</dd>
+  </dl>
+</div>
+
+<h2>Scan errors</h2>
+<p class="meta">
+  Operational problems encountered while scanning. These are gaps in coverage,
+  not security findings.
+</p>
+<ul class="errors">
+  <li>could not resolve http://localhost:3001/ftp/ (connection refused)</li>
+</ul>
+
+<footer>
+  Generated by the Web Application Security Scanner. Findings are automated
+  indicators requiring manual verification. No external resources are loaded by
+  this document.
+</footer>
+
+</div>
+</body>
+</html>

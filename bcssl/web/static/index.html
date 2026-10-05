@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BCSSL Cybersecurity Assessment Lab</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="row" style="max-width:1280px;margin:0 auto;padding:0 1.25rem;">
+    <div style="flex:1 1 auto;">
+      <h1 id="lab-name">BCSSL Cybersecurity Assessment Lab</h1>
+      <div class="sub" id="lab-sub">authorized local assessment</div>
+    </div>
+    <nav>
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="target">Target</button>
+      <button data-tab="preflight">Preflight</button>
+      <button data-tab="tools">Tools</button>
+      <button data-tab="run">Run</button>
+      <button data-tab="findings">Findings</button>
+      <button data-tab="correlation">Correlation</button>
+      <button data-tab="evidence">Evidence</button>
+      <button data-tab="reports">Reports</button>
+      <button data-tab="lab">Exercises</button>
+      <button data-tab="progress">Progress</button>
+      <button data-tab="docs">Docs</button>
+      <button data-tab="about">About</button>
+      <button id="theme-toggle">Theme</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="banner" id="target-banner">
+    AUTHORIZED TARGET
+    <small id="target-detail">checking...</small>
+  </div>
+
+  <!-- 1. Dashboard -->
+  <section id="tab-dashboard">
+    <h2>Overview</h2>
+    <div class="grid" id="overview-stats"></div>
+    <h2>Tool status</h2>
+    <div id="dashboard-tools"></div>
+    <h2>Recent runs</h2>
+    <div id="dashboard-runs"></div>
+    <h2>Verification status</h2>
+    <div id="dashboard-verification"></div>
+  </section>
+
+  <!-- 2. Target -->
+  <section id="tab-target" class="hidden">
+    <h2>Authorized target</h2>
+    <div id="target-detail-panel"></div>
+    <h2>Validate an arbitrary URL against the lab scope</h2>
+    <p class="meta">The same validator runs before every scan. Try a public host to see it refuse.</p>
+    <div class="toolbar">
+      <input type="text" id="probe-url" value="http://localhost:3001" size="42">
+      <button id="probe-run">Validate</button>
+      <span id="probe-status" class="meta"></span>
+    </div>
+    <div id="probe-result"></div>
+  </section>
+
+  <!-- 3. Preflight -->
+  <section id="tab-preflight" class="hidden">
+    <h2>Preflight</h2>
+    <div class="toolbar">
+      <button class="primary" id="preflight-run">Run preflight</button>
+      <span id="preflight-status" class="meta"></span>
+    </div>
+    <div id="preflight-table"></div>
+    <pre id="preflight-remedies" class="hidden"></pre>
+  </section>
+
+  <!-- 4. Tools -->
+  <section id="tab-tools" class="hidden">
+    <h2>Tool availability</h2>
+    <p class="meta">
+      A tool that cannot be executed is reported as TOOL NOT INSTALLED and produces
+      zero findings. Nothing is ever simulated.
+    </p>
+    <div id="tool-cards"></div>
+  </section>
+
+  <!-- 5. Run -->
+  <section id="tab-run" class="hidden">
+    <h2>Run assessment</h2>
+    <div class="toolbar">
+      <button class="primary" id="run-all">Run safe full assessment</button>
+      <select id="tool-select"></select>
+      <button id="run-selected">Run selected tool</button>
+      <button class="small" id="run-refresh">Refresh status</button>
+      <span id="run-status" class="meta"></span>
+    </div>
+    <div class="card">
+      <strong>Safe full assessment</strong>
+      <ol class="tight">
+        <li>Validate the authorized target</li>
+        <li>Check tool availability</li>
+        <li>Run Nmap, Nikto, Nuclei, ZAP and the custom scanner</li>
+        <li>Parse, normalize and correlate results</li>
+        <li>Store evidence with SHA-256 hashes</li>
+        <li>Generate HTML, JSON and Markdown reports</li>
+      </ol>
+      <p class="meta">A tool that fails is recorded as failed; the run continues and no result is fabricated.</p>
+    </div>
+    <div id="run-log"></div>
+  </section>
+
+  <!-- 6. Findings -->
+  <section id="tab-findings" class="hidden">
+    <h2>Findings</h2>
+    <div class="toolbar">
+      <label class="meta">Severity:
+        <select id="severity-filter">
+          <option value="">All</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+          <option value="INFO">INFO</option>
+        </select>
+      </label>
+      <label class="meta">Tool:
+        <select id="tool-filter"><option value="">All</option></select>
+      </label>
+      <label class="meta">Verification:
+        <select id="status-filter"><option value="">All</option></select>
+      </label>
+    </div>
+    <div id="findings-list"></div>
+  </section>
+
+  <!-- 7. Correlation -->
+  <section id="tab-correlation" class="hidden">
+    <h2>Cross-tool correlation</h2>
+    <p class="meta">
+      Findings are linked only on an exact canonical fingerprint. Wording similarity alone is never treated as confirmation.
+    </p>
+    <div id="correlation-summary"></div>
+    <div id="correlation-list"></div>
+  </section>
+
+  <!-- 8. Evidence -->
+  <section id="tab-evidence" class="hidden">
+    <h2>Evidence records</h2>
+    <p class="meta">Each record names the verbatim raw artifact it came from and its SHA-256.</p>
+    <div id="evidence-list"></div>
+  </section>
+
+  <!-- 9. Reports -->
+  <section id="tab-reports" class="hidden">
+    <h2>Reports</h2>
+    <div class="toolbar">
+      <button class="primary" id="make-report">Generate consolidated report</button>
+      <span id="report-status" class="meta"></span>
+    </div>
+    <div id="report-files"></div>
+  </section>
+
+  <!-- 10. Exercises -->
+  <section id="tab-lab" class="hidden">
+    <h2>Exercises</h2>
+    <p class="meta">
+      Progress is never completed by running a tool. Tick the checklist, answer the
+      questions correctly and record your evidence.
+    </p>
+    <div id="lab-list"></div>
+  </section>
+
+  <!-- 11. Progress -->
+  <section id="tab-progress" class="hidden">
+    <h2>Progress</h2>
+    <div class="grid" id="progress-stats"></div>
+    <h2>Achievements</h2>
+    <div id="progress-badges"></div>
+    <h2>Per exercise</h2>
+    <div id="progress-table"></div>
+  </section>
+
+  <!-- 12. Docs -->
+  <section id="tab-docs" class="hidden">
+    <h2>Documentation</h2>
+    <div class="toolbar">
+      <button class="small" id="docs-open">Open selected document</button>
+      <span class="meta">Documents are served read-only from docs/ and README.md.</span>
+    </div>
+    <div id="docs-list"></div>
+    <pre id="docs-content" class="hidden"></pre>
+  </section>
+
+  <!-- 13. About -->
+  <section id="tab-about" class="hidden">
+    <h2>About this lab</h2>
+    <div class="card">
+      <p><strong>BCSSL Cybersecurity Assessment Lab</strong> is an authorized, local-only
+      educational lab. It assesses one deliberately vulnerable training application on
+      the loopback interface.</p>
+      <p>The target validator refuses public IPs, external domains, arbitrary URLs and
+      unauthorized ports <em>before</em> any tool runs. Excluded everywhere: uploads,
+      injection, remote file retrieval, denial of service, command execution, SQL
+      injection, authentication bypass, remote source inclusion, brute force and fuzzing.</p>
+      <p>Findings are automated indicators. They require manual verification, and an
+      empty result is not proof that an application is secure.</p>
+      <p class="meta">Command line equivalents of every dashboard action:</p>
+      <pre>python -m bcssl preflight
+python -m bcssl validate-target
+python -m bcssl run-all
+python -m bcssl report --correlation-view
+python -m bcssl lab list
+python -m bcssl lab progress</pre>
+    </div>
+    <div id="about-scope"></div>
+  </section>
+
+  <footer class="bottom">
+    Findings are automated indicators requiring manual verification. Assessment is
+    restricted to the authorized local target.
+  </footer>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

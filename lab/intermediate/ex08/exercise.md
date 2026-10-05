@@ -1,0 +1,89 @@
+# Exercise 08 — Cross-Tool Finding Comparison
+
+## Objective
+
+Orchestrate three independent tools in one lab run and build a comparison matrix that shows where their findings agree, where they are unique, and why detection coverage differs between them.
+
+## Authorized Target
+
+```
+http://localhost:3001
+```
+
+## Prerequisites
+
+- Exercises 05, 06 and 07 completed, with each tool's raw report already saved under `evidence/`.
+- ZAP, nikto and the external custom-scanner are all installed and were individually verified in earlier exercises.
+- OWASP Juice Shop is running on `http://localhost:3001`.
+- You have created the folders `evidence/zap/`, `evidence/nikto/` and `evidence/custom-scanner/`.
+
+## Tool Used
+
+`zap`, `nikto`, `custom-scanner` — orchestrated together by the lab CLI:
+
+| Tool | Contribution to the comparison |
+|------|--------------------------------|
+| ZAP (baseline) | rule-based alerts, e.g. missing headers, cookie flags; risk 0-3 |
+| nikto | interesting-file and misconfiguration items; HTTP codes + item ids |
+| custom-scanner | its own `headers` and `paths` findings; info/low/medium/high/critical |
+
+## Exact Command
+
+```bash
+python -m bcssl run-all --tools zap,nikto,custom-scanner
+```
+
+## Expected Observation
+
+The lab runs the three tools against `http://localhost:3001`, writing ZAP's HTML/JSON report, nikto's JSON output and the custom-scanner's HTML report into `reports/raw/`, then prints a combined summary. In the console you should see one clearly labelled block per tool.
+
+The interesting part is the differences: ZAP contributes rule-based alerts such as missing headers and cookie-flag issues, nikto contributes interesting-file and misconfiguration items, and the custom-scanner contributes its own `headers` and `paths` findings with its `info`/`low`/`medium`/`high`/`critical` vocabulary. You should typically see at least one theme reported by more than one tool, for example missing security headers.
+
+Do not assert exact agreement counts; build your matrix from what you actually observe.
+
+## Student Task
+
+1. Run the exact command above from the lab project root and let all three tools finish.
+2. Copy each tool's unmodified report out of `reports/raw/` into `evidence/zap/`, `evidence/nikto/` and `evidence/custom-scanner/` with an `ex08-` prefix, keeping the originals untouched.
+3. Build a comparison matrix in `evidence/report/ex08-comparison-matrix.md` with one row per finding theme and columns for:
+   - theme
+   - ZAP (alert name and risk)
+   - nikto (item id)
+   - custom-scanner (module and severity)
+   - verdict: seen in **2+ tools** or seen in **1 tool**
+4. For every theme seen by only one tool, write one sentence on why that tool might have had a blind spot there.
+5. Write a short paragraph naming the theme you consider best corroborated, and cite the specific tool evidence for it.
+
+## Evidence Requirement
+
+- Unmodified copies of all three tool reports under `evidence/zap/`, `evidence/nikto/` and `evidence/custom-scanner/`, each prefixed `ex08-`.
+- File `evidence/report/ex08-comparison-matrix.md` containing your completed matrix with a 2+-tool versus single-tool verdict per theme.
+- A one-sentence blind-spot explanation for each single-tool theme.
+- These filenames must be referenced in the evidence index of your final report (Exercise 12).
+
+## Questions
+
+**q1. Which finding themes did all three tools report, and what makes that agreement meaningful in an assessment?**
+
+> Name the shared theme (missing security headers is the usual one) and quote each tool's own evidence for it. Explain that independent agreement raises confidence because three different rule sets and request patterns reached the same conclusion, which reduces the chance of a scanner-specific artefact.
+
+**q2. Why did each tool see a different set of findings even though they targeted the same application at the same time?**
+
+> Explain the causes: different test catalogs and rule logic, different crawling depth (ZAP spider-driven versus nikto's per-product list versus a wordlist-based module), different severity vocabularies, and the fact that each tool exercises the application with slightly different request patterns and headers, so each observes a different slice of behaviour.
+
+**q3. How should a report author treat a theme that only one tool reported?**
+
+> Explain that single-tool observations are still reportable but must be labelled as such, need their evidence attached, and should be verified or explicitly marked unconfirmed rather than promoted to the same status as corroborated findings. Describe what verification would look like using another tool or a manual look at the local response, without leaving the authorized target.
+
+## Safety Note
+
+Authorized local-only use against `http://localhost:3001`. Running three tools at once increases request volume against the local application, so keep it that way: sequential or rate-limited execution through the lab only, never point any of the three at an external host, public domain, or arbitrary IP address, and never compare against a third-party system for comparison. Do not add attack modes, fuzzing, credential testing, or denial-of-service options while composing the run. Evidence comparison is safe; re-testing beyond the lab scope is not.
+
+## Completion Checklist
+
+- [ ] **c1** — I ran `python -m bcssl run-all --tools zap,nikto,custom-scanner` from the lab project root and kept the per-tool console blocks.
+- [ ] **c2** — I copied all three unmodified reports into `evidence/zap/`, `evidence/nikto/` and `evidence/custom-scanner/` with `ex08-` prefixes.
+- [ ] **c3** — I completed the comparison matrix at `evidence/report/ex08-comparison-matrix.md` with a 2+-tool versus single-tool verdict for every theme.
+- [ ] **c4** — I wrote a blind-spot sentence for each single-tool theme, justified the best-corroborated theme with cited evidence, and answered q1, q2 and q3.
+
+> Progress in this lab is never auto-completed by running a tool. An exercise is done only when you have saved the evidence, answered the questions, and ticked the checklist.

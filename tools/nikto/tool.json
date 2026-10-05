@@ -1,0 +1,39 @@
+{
+  "tool": "nikto",
+  "purpose": "Local web server configuration and security assessment",
+  "executable": "nikto",
+  "version_args": ["-Version"],
+  "transport": "auto",
+  "docker_image": "alpine/nikto:latest",
+  "parser": "bcssl.parsers.nikto",
+  "report_filename": "nikto-report.json",
+  "scope": "The authorized target only, using the plugin groups listed in tools.nikto.tuning.",
+  "default_tuning": "1237bd",
+  "tuning_included": {
+    "1": "interesting files/sites",
+    "2": "misconfiguration",
+    "3": "information disclosure",
+    "7": "retrieve server information",
+    "b": "software identification",
+    "d": "cross-site scripting (non-destructive probe)"
+  },
+  "tuning_excluded": {
+    "0": "file upload",
+    "4": "injection",
+    "5": "remote file retrieval",
+    "6": "denial of service",
+    "8": "command execution",
+    "9": "SQL injection",
+    "a": "authentication bypass",
+    "c": "remote source inclusion"
+  },
+  "enforcement": "The runner raises an error if a caller passes any excluded tuning character, so the exclusions cannot be re-enabled by configuration alone.",
+  "severity_mapping": "Taken from an explicit 'Severity: x' marker when Nikto provides one; otherwise matched references are LOW and informational items are INFO.",
+  "prerequisites": "Nikto requires Perl.",
+  "install": {
+    "windows": "Install Perl (Strawberry Perl) then: cpan Nikto  - or use Docker: docker run --rm -it edtodo/nikto nikto.pl -h http://localhost:3001",
+    "macos": "brew install nikto",
+    "linux": "sudo apt-get install nikto   (or git clone https://github.com/sullo/nikto)",
+    "generic": "Nikto is a Perl program: https://github.com/sullo/nikto"
+  }
+}

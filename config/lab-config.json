@@ -1,0 +1,116 @@
+{
+  "lab": {
+    "name": "BCSSL Cybersecurity Assessment Lab",
+    "version": "1.0.0",
+    "instructor": "",
+    "authorization_statement": "Authorized educational use only. Assessment is restricted to the locally hosted training target declared in this configuration. No public, third-party, or arbitrary host may be scanned."
+  },
+  "target": {
+    "authorized_url": "http://localhost:3001",
+    "allowed_hosts": [
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "allowed_ports": [
+      3001
+    ],
+    "require_loopback": true,
+    "allow_ipv4_mapped": true
+  },
+  "http": {
+    "timeout_seconds": 15,
+    "user_agent": "BCSSL-Assessment-Lab/1.0 (authorized local lab)",
+    "max_body_bytes": 262144
+  },
+  "tools": {
+    "nmap": {
+      "enabled": true,
+      "executable": "nmap",
+      "transport": "auto",
+      "ports": "3001",
+      "scan_type": "-sT",
+      "service_detection": true,
+      "skip_host_discovery": true,
+      "timeout_seconds": 300,
+      "docker_image": "instrumentisto/nmap:latest"
+    },
+    "zap": {
+      "enabled": true,
+      "executable": "zap-baseline.py",
+      "transport": "auto",
+      "mode": "baseline",
+      "level": "MEDIUM",
+      "timeout_seconds": 900,
+      "docker_image": "ghcr.io/zaproxy/zaproxy:stable",
+      "docker_mount_path": "/zap/wrk",
+      "baseline_executable": "zap-baseline.py",
+      "spider_max_depth": 5,
+      "spider_max_seconds": 180,
+      "threads_per_host": 2,
+      "alert_threshold": 0
+    },
+    "nikto": {
+      "enabled": true,
+      "executable": "nikto",
+      "transport": "auto",
+      "tuning": "1237bd",
+      "timeout_seconds": 600,
+      "docker_image": "alpine/nikto:latest"
+    },
+    "nuclei": {
+      "enabled": true,
+      "executable": "nuclei",
+      "transport": "auto",
+      "severities": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "exclude_tags": [
+        "dos",
+        "fuzz",
+        "intrusion",
+        "headless",
+        "bruteforce",
+        "brutespray",
+        "code",
+        "workflow"
+      ],
+      "rate_limit": 5,
+      "concurrency": 5,
+      "timeout_seconds": 2400,
+      "docker_image": "projectdiscovery/nuclei:latest",
+      "templates_dir": "/bcssl-templates",
+      "docker_extra_mounts": [
+        "{project_root}/tools/nuclei/templates-lab:/bcssl-templates:ro"
+      ],
+      "json_flag": "-j"
+    },
+    "custom-scanner": {
+      "enabled": true,
+      "executable": "scanner.py",
+      "transport": "local",
+      "project_root": "C:\\Users\\devas\\Documents\\Cybersecurity\\Web-Security-Scanner",
+      "python": "auto",
+      "modules": [
+        "headers",
+        "paths",
+        "injection"
+      ],
+      "timeout_seconds": 900
+    }
+  },
+  "pipeline": {
+    "severity_floor": "INFO",
+    "correlation": true,
+    "evidence_excerpt_chars": 1200
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "open_browser": false
+  }
+}

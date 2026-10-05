@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bcssl-assessment-lab"
+version = "1.0.0"
+description = "Authorized local cybersecurity assessment lab integrating Nmap, OWASP ZAP, Nikto, Nuclei and a custom application scanner against a single local target."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "BCSSL Cybersecurity Assessment Lab contributors" }]
+keywords = ["security", "education", "lab", "juice-shop", "assessment"]
+
+# The engine is deliberately dependency-free: everything the lab needs to run
+# (HTTP client, HTML parsing, templating, web server, tests) comes from the
+# Python standard library. Security tools themselves are external executables
+# and are detected, never bundled.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+bcssl = "bcssl.cli:main"
+
+[tool.setuptools]
+packages = [
+    "bcssl",
+    "bcssl.parsers",
+    "bcssl.runners",
+    "bcssl.lab",
+    "bcssl.web",
+]
+
+[tool.setuptools.package-data]
+"bcssl.web" = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
