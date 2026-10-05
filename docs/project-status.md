@@ -97,9 +97,11 @@ Real tool behaviour is verified separately by real execution (section 9).
 | `config.py` | Configuration load, merge, alias folding, safe defaults | COMPLETE |
 | `executor.py` | Subprocess execution with capture and timeout | COMPLETE |
 | `runner.py` | 10-step runner contract, Docker transport, evidence | COMPLETE |
+| `runs.py` | Assessment identifiers, per-run isolation, manifests | COMPLETE |
 | `templates.py` | Nuclei template fetch and curated lab profile | COMPLETE |
 | `clean.py` | Artifact cleanup with dry-run | COMPLETE |
 | `verify.py` | Independent re-check of reported conditions | COMPLETE |
+| `sarif.py` | SARIF 2.1.0 export and structural validation | COMPLETE |
 | `parsers/nmap.py` | Nmap XML | COMPLETE |
 | `parsers/zap.py` | ZAP JSON, classic and modern report models | COMPLETE |
 | `parsers/zap_html.py` | ZAP HTML report (current releases store alerts here) | COMPLETE |
@@ -110,15 +112,15 @@ Real tool behaviour is verified separately by real execution (section 9).
 | `severity.py` | Severity vocabulary and native-scale mapping | COMPLETE |
 | `models.py` | Finding schema, run results, statuses | COMPLETE |
 | `correlation.py` | Cross-tool correlation and labelling | COMPLETE |
-| `evidence.py` | Evidence records and integrity verification | COMPLETE |
-| `reporting.py` | HTML, JSON and Markdown reports | COMPLETE |
+| `evidence.py` | Evidence records, per-run scoping, integrity verification | COMPLETE |
+| `reporting.py` | HTML, JSON, Markdown and SARIF reports | COMPLETE |
 | `pipeline.py` | Run, collect, persist, assessment assembly | COMPLETE |
 | `lab/exercises.py` | Exercise registry and validation | COMPLETE |
 | `lab/quiz.py` | Answer grading and answer-key protection | COMPLETE |
 | `lab/progress.py` | Progress, completion rules, badges | COMPLETE |
 | `web/server.py` | Dashboard API, 16 endpoints | COMPLETE |
 | `web/static/*` | Dashboard UI, 13 pages | COMPLETE |
-| `cli.py` | Command-line interface, 17 commands | COMPLETE |
+| `cli.py` | Command-line interface, 18 commands | COMPLETE |
 
 ## 7. Tools integrated
 
@@ -178,9 +180,48 @@ refusal of path traversal on both `/static/` and `/docs/`.
 
 ## 11. CLI status
 
-**COMPLETE.** 17 commands: `validate-target`, `preflight`, `run`, `run-all`,
-`collect`, `report`, `status`, `lab` (`list`/`show`/`ack`/`progress`/`reset`),
+**COMPLETE.** 18 commands: `validate-target`, `preflight`, `run`, `run-all`,
+`collect`, `report`, `runs`, `status`, `lab` (`list`/`show`/`ack`/`progress`/`reset`),
 `web`, `version`, `update-templates`, `build-template-profile`, `verify`, `clean`.
+
+## 11a. Run-index rotation status
+
+**COMPLETE.** `bcssl/runs.py` allocates a monotonic assessment identifier
+(`run-001`, `run-002`, ...) before any tool runs and gives each assessment an
+isolated namespace:
+
+| Artifact | Location |
+| --- | --- |
+| Raw tool output | `reports/raw/run-001/run-001-<tool>/` |
+| Normalized findings | `reports/normalized/run-001/findings-run-001-<tool>.json` |
+| Evidence records | `evidence/run-001/<tool>/` |
+| Reports | `reports/final/run-001.{html,json,md,sarif}` |
+| Run metadata manifest | `state/assessments/run-001.json` |
+| Counter | `state/sequence.json` |
+
+The counter is reconciled against the filesystem and the run index on every
+allocation, so identifier reuse is impossible even after a manual deletion. A
+full assessment shares one identifier across all five tools.
+`python -m bcssl runs --verify` lists each run and re-hashes its evidence.
+
+Covered by `tests/test_runs.py`, including consecutive-run isolation, evidence
+addressability, report references and hash validity across runs.
+
+## 11b. SARIF export status
+
+**COMPLETE.** `bcssl/sarif.py` emits SARIF 2.1.0 from stored normalized findings
+and nothing else. One run object per tool, explicit severity-to-level mapping,
+empty assessments produce a valid empty log, and `sarif.validate()` checks the
+structural requirements SARIF imposes. Covered by `tests/test_sarif.py`,
+including special-character handling.
+
+## 11c. Git repository status
+
+**COMPLETE.** Initialised at the project root with one commit describing
+v1.0.0. `.gitignore` excludes secrets, credentials, virtual environments,
+Python caches, generated scan artifacts, evidence records, run state, Nuclei
+templates, Docker runtime data, logs and temporary files, while preserving the
+directory skeleton. Tracked file count is 148; the working tree is clean.
 
 ## 12. Reporting status
 
@@ -212,10 +253,23 @@ badges are computed from recorded state.
 
 ## 15. Documentation status
 
-**COMPLETE.** 12 documents: architecture, installation, tool guide, student
-guide, instructor guide, evidence guide, reporting, troubleshooting,
-limitations, project status, final verification, final scorecard. Plus README and
-RELEASE-CHECKLIST.
+**COMPLETE.** 22 documents:
+
+| Group | Documents |
+| --- | --- |
+| Orientation | `project-overview.md`, `architecture.md` |
+| Setup | `installation.md`, `instructor-quick-start.md`, `student-quick-start.md` |
+| Demonstration | `demo-guide.md`, `live-demo-script.md`, `presentation-guide.md`, `presentation-content.md`, `demo-screenshot-checklist.md` |
+| Academic | `viva-questions.md`, `daily-work-summary.md` |
+| Reference | `tool-guide.md`, `student-guide.md`, `instructor-guide.md`, `evidence-guide.md`, `reporting.md`, `troubleshooting.md`, `limitations.md` |
+| Status | `project-status.md`, `final-verification.md`, `final-project-scorecard.md` |
+
+Plus `README.md` and `RELEASE-CHECKLIST.md`.
+
+Every documented command was executed on the build machine. Where a documented
+flag does not exist, the documentation was corrected rather than the behaviour
+guessed — this is how a fabricated `--scan-type` example was found and replaced
+with a refusal that actually works.
 
 ## 16. Security/safety controls status
 

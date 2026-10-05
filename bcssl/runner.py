@@ -258,6 +258,8 @@ class BaseRunner:
             status=RunStatus.OK,
             target=target_url,
             started_at=started,
+            run_id=self.context.run_id,
+            assessment=self.context.assessment,
         )
 
         # 1 - tool availability
@@ -445,7 +447,12 @@ class BaseRunner:
 
         limit = self.config.evidence_excerpt_chars
         records: list[EvidenceRecord] = []
-        for finding in result.findings:
+        # Several findings can share a title (for example one template reporting
+        # eight missing headers). Filenames must therefore be unique per record,
+        # or records would silently overwrite each other and the evidence count
+        # would understate what was found.
+        used: set[str] = set()
+        for index, finding in enumerate(result.findings, start=1):
             excerpt = parsed.excerpts.get(finding.title) or finding.evidence or finding.description
             if len(excerpt) > limit:
                 excerpt = excerpt[:limit] + "\n[...]"
@@ -459,10 +466,19 @@ class BaseRunner:
                 raw_sha256=digest,
                 reference=finding.reference,
             )
-            filename = (
+            base = (
                 f"{self.context.run_id}--"
-                f"{slugify(finding.title)}--{digest[:8] or 'nohash'}.json"
+                f"{slugify(finding.title)}--{digest[:8] or 'nohash'}"
             )
+            filename = f"{base}.json"
+            if filename in used:
+                filename = f"{base}--{index:03d}.json"
+            attempt = 2
+            while filename in used:
+                filename = f"{base}--{index:03d}-{attempt}.json"
+                attempt += 1
+            used.add(filename)
+
             destination = evidence_dir / filename
             record.path = paths.relative_to_root(destination)
             from .models import write_json

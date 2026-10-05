@@ -13,6 +13,62 @@ will not claim multi-tool confirmation for a finding only one tool reported.
 
 ## 2. System diagram
 
+### 2.1 Layer flow
+
+```text
+Student / Instructor
+        |
+        v
+Web Dashboard / CLI
+        |
+        v
+Assessment Controller
+        |
+        +-----------------------------+
+        |             |               |
+        v             v               v
+     Preflight     Target         Configuration
+        |        Validation
+        v
++-------+-------+-------+-------+-------+
+|       |       |       |       |       |
+Nmap    ZAP    Nikto  Nuclei  Custom Scanner
+|       |       |       |       |
++-------+-------+-------+-------+-------+
+                |
+                v
+        Tool Output / Raw Evidence
+                |
+                v
+        Parsers + Normalization
+                |
+                v
+        Correlation Engine
+                |
+                v
+        Evidence + SHA-256
+                |
+                v
+          Reporting Engine
+          /      |       \
+         v       v        v
+       HTML     JSON    Markdown
+                         +
+                       SARIF
+                |
+                v
+        Student Practicals
+```
+
+Read it as one direction of travel: a request enters from the dashboard or the
+CLI, is checked three ways before anything runs, fans out to five independent
+tools, converges again through parsing and normalization, is enriched by
+correlation and evidence, and leaves as four report formats plus a graded
+practical lab. Nothing flows backwards, and nothing is written before the target
+has been validated.
+
+### 2.2 Module-level diagram
+
 ```mermaid
 flowchart TD
     Student[Student / Instructor] --> CLI["CLI<br/>python -m bcssl"]
@@ -81,7 +137,7 @@ flowchart TD
     S5 --> S6["6. capture exit code"]
     S6 --> S7["7. store raw output<br/>reports/raw/&lt;tool&gt;/... (never edited)"]
     S7 --> S8["8. parse output<br/>bcssl.parsers.&lt;tool&gt;<br/>native format (xml/json/jsonl/html)"]
-    S8 --> S9["9. normalize findings<br/>10-key schema, tool severity -> lab severity"]
+    S8 --> S9["9. normalize findings<br/>11-key schema, tool severity -> lab severity"]
     S9 --> S10["10. generate evidence metadata<br/>sha256 of raw file, timestamps, target"]
 
     S4 -->|timeout| TO["TIMEOUT enforced<br/>duration recorded, raw partial output kept"]
@@ -103,6 +159,109 @@ Key properties of the contract:
 - A non-zero exit code is data, not an exception. Findings that the tool did emit are still
   parsed and kept.
 - A parser failure is reported as a parser failure. It is never downgraded to "0 findings".
+- **Accepted exit codes are per tool.** Most tools use 0. ZAP's baseline script returns
+  `2` when the scan completed *and* alerts were raised, which is a successful scan with
+  findings. `BaseRunner.success_exit_codes` declares `(0, 2)` for ZAP so a real scan is not
+  discarded as a failure. Without this, an 11-finding ZAP scan would have been reported as
+  `TOOL FAILED`.
+
+## 3a. What each layer actually does
+
+### Interface layer — `bcssl/web/server.py`, `bcssl/cli.py`
+
+Sixteen JSON endpoints and thirteen dashboard pages; eighteen CLI commands. Both are thin
+readers over stored state. Neither invents data: before any scan has run, the dashboard and
+the report both say "No scan results available". The dashboard binds loopback only and the
+`web` command refuses any other bind address.
+
+### Assessment controller — `bcssl/pipeline.py`
+
+Allocates the assessment identifier, iterates tools independently, and persists each result.
+One failing tool never prevents the others from running; every outcome is recorded either
+way. `collect()` then re-normalizes, correlates and indexes evidence from
+`state/run-index.json`, which is what allows a report to be rebuilt without re-scanning.
+
+### Run isolation — `bcssl/runs.py`
+
+Holds the monotonic counter, resolves each assessment's directory layout, and writes the
+per-run metadata manifest. Allocation reconciles the counter with the filesystem and the
+run index, so deleting a directory or `state/sequence.json` cannot cause an identifier to
+be reused. Retention is manual by design: evidence hashes are only meaningful while their
+artifact exists, so nothing is pruned automatically.
+
+### Preflight — `bcssl/preflight.py`, `bcssl/preflight_report.py`
+
+Probes every component for real. Distinguishes the Docker CLI from the Docker engine, and
+never reports a tool as available because a file exists on disk. Renders a
+`Component | Status | Version | Details` table with `READY`, `READY WITH WARNING`,
+`NOT INSTALLED`, `NOT RUNNING`, `UNAVAILABLE` and `ERROR`, and prints an exact remediation
+for anything not ready. Exits non-zero when a required component is unavailable. It also
+flags a target container bound to anything other than loopback.
+
+### Target validation — `bcssl/target.py`
+
+Allowlists host and port, restricts the scheme, rejects credential-bearing URLs and
+argument smuggling, resolves the name and requires the result to stay on loopback. Runs
+before every tool invocation from `BaseRunner.run`, so no code path can build a command
+against an unauthorized target.
+
+### Configuration — `bcssl/config.py`
+
+Loads `config/lab-config.json`, folds tool-key aliases, and merges with conservative
+built-in defaults. Read-only at runtime: the lab never writes to it.
+
+### Transport — `bcssl/executor.py`, `BaseRunner.wrap_with_docker`
+
+Each tool runs locally or in its official container image, chosen automatically
+(`transport: auto`). The run directory is mounted at a fixed path and used as the working
+directory, so tool-relative output filenames behave identically either way. If the image
+already declares the tool as its `ENTRYPOINT`, the leading executable name is dropped —
+otherwise the tool would receive it as a positional argument and could treat it as an extra
+scan target.
+
+### Parsers and normalization — `bcssl/parsers/`
+
+Each tool's native format becomes the eleven-field schema. Severity mapping is deliberately
+conservative, and unrecognised input becomes `INFO` rather than being read as a rating.
+
+Three parser behaviours exist specifically to prevent silent under-reporting:
+
+| Behaviour | Why it exists |
+| --- | --- |
+| ZAP falls back to the HTML report | Current ZAP releases omit the classic `alerts` array from the JSON report, keeping alerts in HTML. Without the fallback a successful 11-finding scan reported zero. |
+| Nuclei reports a format mismatch as an **error** | If console output appears where JSONL was expected, that is a format problem, not zero findings. Reporting it as "no findings" would have been a lie. |
+| Nikto supports both JSON generations | 2.1.x emits an object with a `vulnerabilities` array; 2.5.x emits a flat record stream. Both are covered by tests. |
+
+### Correlation — `bcssl/correlation.py`
+
+Links findings only on an exact `category::subject` fingerprint. Two or more *distinct*
+tools on one fingerprint is a confirmation; one tool however many endpoints is a
+single-tool observation; the same tool twice is never corroboration. Wording-derived
+fingerprints are excluded from confirmation, because identical wording is not independent
+agreement.
+
+### Independent verification — `bcssl/verify.py`
+
+Performs its own minimal HTTP checks against the validated target: whether specific headers
+are present or absent, and whether a path returns a non-error status. It can only *upgrade*
+a finding's status, never create, remove or downgrade one. Corroboration outranks
+independent reproduction. It never attempts exploitation, so `DETECTED` never means
+"proven exploitable".
+
+### Evidence — `bcssl/evidence.py`
+
+One record per finding, naming the verbatim raw artifact and its SHA-256. Filenames are
+collision-safe per record: nuclei reported the same title eight times for eight different
+headers, and without unique filenames those records would have overwritten each other.
+`verify_assessment()` re-hashes one assessment without touching the others.
+
+### Reporting — `bcssl/reporting.py`, `bcssl/sarif.py`
+
+Four formats from one collected assessment, so they cannot disagree: self-contained HTML,
+full JSON, reviewable Markdown and SARIF 2.1.0. All tool-supplied text is HTML-escaped,
+because tool output contains response fragments from the target and must never be injected
+as markup. Reports are named after the assessment they describe. Limitations are never
+omitted.
 
 ## 4. Module map
 
@@ -260,25 +419,42 @@ BCSSL-Cybersecurity-Assessment-Lab/
   runners/{nmap,zap,nikto,nuclei,custom-scanner}-runner/   <- thin delegates to bcssl.runners
   parsers/{nmap,zap,nikto,nuclei,custom}-parser/           <- standalone parser CLIs
   tools/{nmap,zap,nikto,nuclei,custom-scanner}/tool.json   <- exec name, image, probe, hints
-  reports/raw/                      <- verbatim tool stdout/stderr + native tool reports
-  reports/normalized/               <- findings-<tool>.json (normalized schema)
-  reports/final/                    <- consolidated report (html/json/md)
-  evidence/<tool>/                  <- per-finding evidence records + sha256 of raw output
-  state/                            <- student progress + run index (gitignored)
+
+  // Generated output, namespaced per assessment (run-001, run-002, ...).
+  // One assessment owns all of its artifacts and can never overwrite
+  // another assessment's.
+  reports/raw/<run-id>/<run-id>-<tool>/   <- verbatim stdout/stderr + native tool report
+  reports/normalized/<run-id>/            <- findings-<run-id>-<tool>.json
+  reports/final/<run-id>.{html,json,md,sarif}
+  evidence/<run-id>/<tool>/               <- per-finding records + sha256 of raw output
+  state/run-index.json                    <- every run, keyed by <run-id>-<tool>
+  state/sequence.json                     <- monotonic assessment counter
+  state/assessments/<run-id>.json         <- per-assessment metadata manifest
   lab/{beginner,intermediate,advanced}/exNN/{exercise.json,exercise.md}
-  scripts/                          <- preflight.py, validate-target.py, run-all.py,
-                                       collect-results.py, generate-report.py
-  docs/                             <- these six files
+  scripts/                          <- setup, start/stop-target, start/stop-lab,
+                                       preflight, run-all, clean, build_release,
+                                       verify_release, generate_verification
+  docs/                             <- these files
   tests/                            <- pytest suite
 ```
 
 ## 11. State and data ownership
 
 - `config/lab-config.json` is read-only at runtime. The lab never writes to it.
-- `reports/raw/` is append-only from the lab's perspective; each run writes a new timestamped
-  artifact rather than overwriting.
-- `reports/normalized/` is derived data. It can be regenerated with `collect` or `report`
-  from `reports/raw/` at any time.
-- `reports/final/` is fully derived and can be deleted and rebuilt.
-- `state/` holds the run index and student progress. It is gitignored because it is
-  per-student, not part of the deliverable.
+- Every assessment receives a unique identifier from a monotonic counter
+  (`run-001`, `run-002`, ...), allocated before any tool runs. The counter in
+  `state/sequence.json` is reconciled with the filesystem and the run index on
+  every allocation, so deleting a directory or a state file can never cause an
+  identifier to be reused and an earlier assessment to be overwritten.
+- Each assessment owns an isolated namespace for raw output, normalized
+  findings, evidence, reports and metadata, so a later run cannot damage an
+  earlier one.
+- `reports/raw/` is append-only from the lab's perspective; each run writes into
+  its own assessment directory rather than overwriting.
+- `reports/normalized/` is derived data. It can be regenerated with `collect` or
+  `report` from `state/run-index.json` at any time.
+- `reports/final/` is fully derived and can be deleted and rebuilt. Reports are
+  named after the assessment they describe, so each assessment keeps its own
+  report set.
+- `state/` holds the run index, the assessment manifests and student progress.
+  It is gitignored because it is per-machine, not part of the deliverable.

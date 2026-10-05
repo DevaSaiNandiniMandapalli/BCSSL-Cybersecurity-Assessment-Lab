@@ -553,12 +553,22 @@ Tool-specific mapping:
 
 | Document | Contents |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | module map, data flow, Mermaid diagrams |
+| [docs/project-overview.md](docs/project-overview.md) | project summary: problem, objective, architecture, results |
+| [docs/architecture.md](docs/architecture.md) | layer flow, per-layer implementation, module map |
 | [docs/tool-guide.md](docs/tool-guide.md) | per-tool reference and install hints |
 | [docs/student-guide.md](docs/student-guide.md) | the twelve exercises, step by step |
 | [docs/instructor-guide.md](docs/instructor-guide.md) | configuration, preflight, grading |
 | [docs/evidence-guide.md](docs/evidence-guide.md) | evidence model and submission template |
 | [docs/installation.md](docs/installation.md) | step-by-step setup from a clean machine |
+| [docs/instructor-quick-start.md](docs/instructor-quick-start.md) | the minimum commands to run a session |
+| [docs/student-quick-start.md](docs/student-quick-start.md) | beginner-facing lab orientation |
+| [docs/demo-guide.md](docs/demo-guide.md) | scripted 10-15 minute demonstration |
+| [docs/live-demo-script.md](docs/live-demo-script.md) | exact 14-step live demo with real expected output |
+| [docs/presentation-guide.md](docs/presentation-guide.md) | three-slide faculty presentation |
+| [docs/presentation-content.md](docs/presentation-content.md) | slide-ready content with verified figures |
+| [docs/demo-screenshot-checklist.md](docs/demo-screenshot-checklist.md) | the 15 screenshots to capture, and how |
+| [docs/viva-questions.md](docs/viva-questions.md) | 30 viva questions with answers |
+| [docs/daily-work-summary.md](docs/daily-work-summary.md) | work-sheet summary line with evidence |
 | [docs/reporting.md](docs/reporting.md) | report formats, correlation, verification status |
 | [docs/limitations.md](docs/limitations.md) | what the lab does *not* do, and why |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | symptom/cause/fix |

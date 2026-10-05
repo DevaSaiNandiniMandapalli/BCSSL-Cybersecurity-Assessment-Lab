@@ -22,11 +22,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
-from .. import paths, pipeline, preflight, reporting
+from .. import paths, pipeline, preflight, reporting, runs
 from ..config import LabConfig
 from ..lab import exercises as exercise_module
 from ..lab import progress as progress_module
-from ..models import RunStatus
+from ..models import RunStatus, read_json
 from ..target import check_reachability, validate_target
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -93,7 +93,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/exercises": self._api_exercises,
             "/api/exercise": self._api_exercise,
             "/api/findings": self._api_findings,
-            "/api/report": self._api_report,
+            "/api/report": self._api_reports,
             "/api/evidence": self._api_evidence,
             "/api/correlation": self._api_correlation,
             "/api/preflight": self._api_preflight,
@@ -138,6 +138,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if route == "/api/grade":
             self._api_grade()
+            return
+        if route == "/api/report":
+            # Report generation is a POST because it writes files. The Reports
+            # page reads existing reports over GET (/api/report).
+            self._api_report()
             return
         self._send_json({"error": "not found", "path": route}, status=404)
 
@@ -186,6 +191,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         from ..correlation import correlate
 
         correlation = correlate(findings)
+        # Per-assessment rollup so the dashboard can show each run separately
+        # instead of one blended list of tool records.
+        run_summaries = runs.summarise()
         try:
             exercises = exercise_module.load_all()
             progress = progress_module.load_progress()
@@ -224,6 +232,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ],
                 "total_findings": len(findings),
                 "correlation": correlation.summary(),
+                "runs_summary": run_summaries,
+                "latest_run": runs.latest() or "",
                 "progress": progress_payload,
                 "progress_error": progress_error,
                 "run_state": dict(_RUN_STATE),
@@ -479,13 +489,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
         def worker() -> None:
             _RUN_STATE["started_at"] = utc_now_iso()
             log: list[str] = []
+            # One shared assessment for the whole batch, as the CLI does, so the
+            # dashboard's full assessment is a single addressable unit.
+            assessment_id = runs.allocate()
+            log.append(f"assessment: {assessment_id}")
+            _RUN_STATE["log"] = list(log)
             try:
                 names = selected or list(self.config.tool_names())
                 for name in names:
                     log.append(f"running {name} ...")
                     _RUN_STATE["log"] = list(log)
                     try:
-                        result = pipeline.run_tool(name, self.config)
+                        result = pipeline.run_tool(
+                            name, self.config, assessment=assessment_id
+                        )
                         pipeline.persist_result(result)
                         log.append(
                             f"{name}: {result.status.label} "
@@ -498,25 +515,97 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 with _RUN_LOCK:
                     _RUN_STATE["running"] = False
                 try:
-                    assessment = pipeline.collect(self.config)
-                    reporting.write_reports(assessment, formats=("html", "json", "md"))
+                    # Scoped to this batch: a dashboard report must describe the
+                    # assessment that was just run, not every stored run.
+                    assessment = pipeline.collect(
+                        self.config, assessment=assessment_id
+                    )
+                    reporting.write_reports(
+                        assessment,
+                        formats=("html", "json", "md"),
+                        run_id=assessment_id,
+                    )
                 except Exception as exc:  # noqa: BLE001
                     log.append(f"report: ERROR {type(exc).__name__}: {exc}")
 
         threading.Thread(target=worker, daemon=True).start()
         self._send_json({"started": True, "tools": selected or "all"}, status=202)
 
-    def _api_report(self) -> None:
-        """Render a report on demand and return the written paths."""
-        assessment = pipeline.collect(self.config)
+    def _api_reports(self) -> None:
+        """Read-only view of the reports that already exist.
+
+        The Reports page must be able to *read* a stored report, not only
+        regenerate one. This handler therefore writes nothing.
+
+        ``?run=`` selects one assessment; with no selection the latest
+        assessment is shown, which is what "the current report" means on the
+        dashboard. The summary is taken from the stored report file when it
+        exists, so the numbers on screen are the numbers that were actually
+        written to disk rather than a freshly recomputed total.
+        """
+        requested = _query_value(self.path, "run")
         try:
-            written = reporting.write_reports(assessment, formats=("html", "json", "md"))
+            run_id = runs.resolve(requested or None)
+        except runs.RunIdError as exc:
+            self._send_json({"error": str(exc), "has_results": False}, status=400)
+            return
+
+        rows = runs.summarise(runs.list_runs())
+        listing = [
+            {
+                "run_id": row["run_id"],
+                "status": row["status"],
+                "tool_count": row["tool_count"],
+                "finding_count": row["finding_count"],
+                "tools": row["tools"],
+                "reports": row["reports"],
+                "latest": row["run_id"] == run_id,
+            }
+            for row in rows
+        ]
+
+        files: dict[str, str] = {}
+        for stored in runs.layout(run_id).final_dir.glob(f"{run_id}.*"):
+            files[stored.suffix.lstrip(".")] = paths.relative_to_root(stored)
+
+        self._send_json(
+            {
+                "has_results": any(row["tool_count"] for row in rows),
+                "assessment": run_id,
+                "latest_run": runs.latest() or "",
+                "runs": listing,
+                "files": files,
+                "report": _stored_report_summary(runs.layout(run_id), run_id),
+            }
+        )
+
+    def _api_report(self) -> None:
+        """Render a report on demand and return the written paths.
+
+        An optional ``run`` in the body selects one assessment. With no
+        selection the report covers the latest assessment, which is what the
+        dashboard's default view means by "the current results".
+        """
+        body = self._read_body()
+        requested = str(body.get("run") or "").strip()
+        try:
+            run_id = runs.resolve(requested or None)
+        except runs.RunIdError as exc:
+            self._send_json({"error": str(exc)}, status=400)
+            return
+
+        assessment = pipeline.collect(self.config, assessment=run_id)
+        try:
+            written = reporting.write_reports(
+                assessment, formats=("html", "json", "md"), run_id=run_id
+            )
         except ValueError as exc:
             self._send_json({"error": str(exc)}, status=400)
             return
         self._send_json(
             {
                 "has_results": bool(assessment.results),
+                "assessment": run_id,
                 "message": reporting.NO_RESULTS_MESSAGE
                 if not assessment.results
                 else None,
@@ -625,6 +714,69 @@ def serve(host: str, port: int, config: LabConfig) -> None:
         httpd.serve_forever()
     finally:
         httpd.server_close()
+
+
+def _query_value(path: str, key: str) -> str:
+    """Read one value from a request path's query string."""
+    from urllib.parse import parse_qs, urlparse
+
+    values = parse_qs(urlparse(path).query).get(key) or []
+    return values[0].strip() if values else ""
+
+
+def _stored_report_summary(layout: Any, run_id: str) -> dict[str, Any]:
+    """Summarise the stored report for *run_id*, without recomputing it.
+
+    The stored JSON report is the artifact a reviewer would open, so the
+    dashboard reports what that file says. Nothing is invented here: if the
+    file is absent, the summary is empty and ``available`` is false.
+    """
+    empty: dict[str, Any] = {
+        "available": False,
+        "assessment": run_id,
+        "source": paths.relative_to_root(layout.report_file("json")),
+        "findings": 0,
+        "tool_counts": {},
+        "severity_counts": {},
+        "correlation": {},
+        "evidence": {},
+        "generated_at": "",
+        "target": "",
+    }
+    document = read_json(layout.report_file("json"))
+    if not isinstance(document, dict):
+        return empty
+
+    tools: dict[str, int] = {}
+    for entry in document.get("tools") or []:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("tool", ""))
+        tools[name] = tools.get(name, 0) + int(entry.get("finding_count", 0) or 0)
+
+    summary = document.get("executive_summary") or {}
+    metadata = document.get("scan_metadata") or {}
+    header = document.get("report") or {}
+    return {
+        "available": True,
+        # The assessment the stored file declares. A file written before
+        # isolation was fixed has no such field, which is reported as empty
+        # rather than assumed.
+        "assessment": str(header.get("assessment", "") or ""),
+        "source": paths.relative_to_root(layout.report_file("json")),
+        "findings": int(summary.get("total_findings", 0) or 0),
+        "tool_counts": tools,
+        "severity_counts": summary.get("severity_counts") or {},
+        "correlation": {
+            "confirmed_by_multiple_tools": summary.get(
+                "confirmed_by_multiple_tools", 0
+            ),
+            "single_tool_observations": summary.get("single_tool_observations", 0),
+        },
+        "evidence": (metadata.get("evidence_integrity") or {}),
+        "generated_at": str(header.get("generated_at", "") or ""),
+        "target": str(header.get("target", "") or ""),
+    }
 
 
 def _find_exercise(exercise_id: str) -> exercise_module.Exercise:

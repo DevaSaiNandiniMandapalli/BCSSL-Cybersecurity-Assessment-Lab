@@ -6,11 +6,21 @@ from the same data so they cannot disagree with each other.
 | Output | Produced by | Location |
 | --- | --- | --- |
 | Console summary | `python -m bcssl report` | terminal |
-| Consolidated JSON | `python -m bcssl report --format json` | `reports/final/` |
-| Consolidated Markdown | `python -m bcssl report --format md` | `reports/final/` |
-| HTML report | `python -m bcssl report --format html` | `reports/final/` |
-| Per-tool normalized JSON | every run | `reports/normalized/` |
-| Raw tool output | every run | `reports/raw/` |
+| Consolidated JSON | `python -m bcssl report --format json` | `reports/final/<run-id>.json` |
+| Consolidated Markdown | `python -m bcssl report --format md` | `reports/final/<run-id>.md` |
+| HTML report | `python -m bcssl report --format html` | `reports/final/<run-id>.html` |
+| SARIF 2.1.0 | `python -m bcssl report --format sarif` | `reports/final/<run-id>.sarif` |
+| Per-tool normalized JSON | every run | `reports/normalized/<run-id>/` |
+| Raw tool output | every run | `reports/raw/<run-id>/` |
+
+Reports are named after the assessment they describe (`run-001.html`,
+`run-002.html`, ...), so each assessment keeps its own report set and a later
+report never overwrites an earlier one. Attach a report to a specific
+assessment with `--run`:
+
+```bash
+python -m bcssl report --run run-001 --format html,json,md,sarif
+```
 
 Reports are regenerated from `state/run-index.json`, so a report can be rebuilt
 **without re-running any scan**:
@@ -19,6 +29,52 @@ Reports are regenerated from `state/run-index.json`, so a report can be rebuilt
 python -m bcssl collect     # re-normalize, correlate and index evidence
 python -m bcssl report
 ```
+
+---
+
+## SARIF 2.1.0 export
+
+SARIF is the OASIS interchange format for static-analysis results, so findings
+can be loaded into code-scanning and dashboard tooling without a bespoke
+importer.
+
+```bash
+python -m bcssl report --format sarif
+```
+
+What the exporter guarantees:
+
+- **Nothing is invented.** Every SARIF result corresponds to exactly one stored
+  normalized finding. Nothing is classified, scored, deduplicated or merged.
+- **One run per tool**, so results stay attributable to their source.
+- **An empty assessment produces a valid, empty log** rather than being omitted
+  or padded.
+- Mapping is explicit: `tool`, `ruleId` (the correlation subject), `level`,
+  `title`/`description` into `message.text`, `target`/`endpoint` into
+  `physicalLocation`, `evidence` into `properties.evidenceExcerpt`,
+  `recommendation` into `fixes`, and the lab's own `severity` and
+  `verification_status` preserved in `properties`.
+
+### Severity mapping
+
+SARIF has exactly three levels, so the lab's five severities map onto them:
+
+| Lab severity | SARIF `level` | `security-severity` |
+| --- | --- | --- |
+| CRITICAL | `error` | 9.5 |
+| HIGH | `error` | 7.5 |
+| MEDIUM | `warning` | 5.0 |
+| LOW | `warning` | 2.5 |
+| INFO | `note` | 0.0 |
+
+The lab's original severity is preserved in `properties.severity`, so nothing is
+lost. `security-severity` is the lab's own severity band expressed numerically -
+it is **not** a CVSS score, and `properties["security-severity-basis"]` says so
+in the file itself.
+
+Structure is checked in the test suite (`tests/test_sarif.py`), including the
+requirement that SARIF imposes of at least one `runs` entry even when there are
+no findings.
 
 ---
 

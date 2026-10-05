@@ -48,6 +48,10 @@ def build_payload(assessment: CollectedAssessment) -> dict[str, Any]:
             "title": f"{config.lab_name} - Security Assessment Report",
             "generated_at": assessment.generated_at,
             "lab": config.lab_name,
+            # Which assessment this document describes. Empty means the payload
+            # spans every stored assessment, which is only valid for a
+            # lab-wide overview rather than a named run report.
+            "assessment": assessment.assessment,
             "target": assessment.target.url if assessment.target else config.authorized_url,
             "target_authorized": bool(assessment.target and assessment.target.ok),
             "authorization_statement": config.authorization_statement,
@@ -96,11 +100,10 @@ def build_payload(assessment: CollectedAssessment) -> dict[str, Any]:
                 result.tool: round(result.duration_seconds, 2)
                 for result in assessment.results
             },
-            "evidence_integrity": evidence_module.verify(
-                [result.tool for result in assessment.results]
-            ).to_dict()
-            if assessment.results
-            else {"checked": 0, "intact": 0, "modified": [], "missing": [], "ok": True},
+            # Re-hash exactly the records this payload carries. Verifying by
+            # tool name instead would pull in every other assessment's records
+            # and report their artifacts as part of this run.
+            "evidence_integrity": _integrity(assessment),
         },
         "tools": assessment.tool_summary(),
         "findings": [finding.to_dict() for finding in findings],
@@ -111,6 +114,31 @@ def build_payload(assessment: CollectedAssessment) -> dict[str, Any]:
         "errors": _collect_errors(assessment),
         "recommendations": _recommendations(assessment),
     }
+
+
+def _integrity(assessment: CollectedAssessment) -> dict[str, Any]:
+    """Re-hash the evidence records carried by *assessment*.
+
+    The records come from the assessment object itself, so an assessment-scoped
+    report never re-hashes - or names - another assessment's artifacts.
+    """
+    empty = {"checked": 0, "intact": 0, "modified": [], "missing": [], "ok": True}
+    if not assessment.results:
+        return empty
+
+    records = list(assessment.evidence_records)
+    if records:
+        return evidence_module.verify_records(records).to_dict()
+
+    # No records were attached to the results: fall back to the storage that
+    # belongs to this assessment, or to the whole lab when unscoped.
+    if assessment.scoped:
+        return evidence_module.verify_assessment(
+            assessment.assessment, assessment.config.tool_names()
+        ).to_dict()
+    return evidence_module.verify(
+        [result.tool for result in assessment.results]
+    ).to_dict()
 
 
 def _verification_section(
@@ -363,6 +391,7 @@ def render_markdown(assessment: CollectedAssessment) -> str:
     lines += [
         "## Scan metadata",
         "",
+        f"- Assessment: {meta['assessment'] or 'all stored assessments'}",
         f"- Target: {payload['scan_metadata']['target']}",
         f"- Started: {payload['scan_metadata']['started_at'] or '-'}",
         f"- Finished: {payload['scan_metadata']['finished_at'] or '-'}",
@@ -519,8 +548,11 @@ def render_html(assessment: CollectedAssessment) -> str:
     # Header
     parts.append('<header class="top"><div class="wrap">')
     parts.append(f"<h1>{esc(meta['title'])}</h1>")
+    # The assessment this document describes, so a reader can tell at a glance
+    # which run it covers and cannot mistake it for a lab-wide total.
+    scope_label = f"Assessment {meta['assessment']} &middot; " if meta["assessment"] else ""
     parts.append(
-        f'<div class="sub">Authorized target: {esc(meta["target"])} &middot; '
+        f'<div class="sub">{scope_label}Authorized target: {esc(meta["target"])} &middot; '
         f'Generated {esc(meta["generated_at"])}</div>'
     )
     parts.append("</div></header>")
@@ -742,6 +774,7 @@ def render_html(assessment: CollectedAssessment) -> str:
     scan = payload["scan_metadata"]
     parts.append("<section><h2>Scan metadata</h2><table>")
     for label, value in (
+        ("Assessment", meta["assessment"] or "all stored assessments"),
         ("Target", scan["target"]),
         ("Started", scan["started_at"] or "-"),
         ("Finished", scan["finished_at"] or "-"),

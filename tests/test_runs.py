@@ -20,6 +20,7 @@ from bcssl.models import (
     ToolRunResult,
     sha256_file,
 )
+from bcssl.runner import slugify
 from bcssl.severity import Severity
 
 
@@ -66,7 +67,8 @@ def make_result(
     evidence_dir = runs.layout(assessment).tool_evidence_dir(tool)
     evidence_dir.mkdir(parents=True, exist_ok=True)
     records: list[EvidenceRecord] = []
-    for finding in findings:
+    used: set[str] = set()
+    for position, finding in enumerate(findings, start=1):
         record = EvidenceRecord(
             tool=tool,
             finding_title=finding.title,
@@ -78,7 +80,19 @@ def make_result(
             recorded_at=finished,
             reference=finding.subject,
         )
-        destination = evidence_dir / f"{abs(hash(finding.title)):012x}.json"
+        # Mirror the runner's naming contract: unique per record even when
+        # titles repeat.
+        base = f"{run_id}--{slugify(finding.title)}--{digest[:8] or 'nohash'}"
+        filename = f"{base}.json"
+        if filename in used:
+            filename = f"{base}--{position:03d}.json"
+        counter = 2
+        while filename in used:
+            filename = f"{base}--{position:03d}-{counter}.json"
+            counter += 1
+        used.add(filename)
+
+        destination = evidence_dir / filename
         record.path = paths.relative_to_root(destination)
         evidence_module.write_record(record)
         records.append(record)
@@ -286,6 +300,61 @@ def test_sha256_hashes_remain_valid_after_both_runs(config):
         assert check.ok, f"{run_id}: modified={check.modified} missing={check.missing}"
 
 
+def test_one_evidence_record_per_finding_with_duplicate_titles(config):
+    """Repeated titles must not collapse into a single record.
+
+    A single template can report the same title for several endpoints; each is a
+    distinct finding and needs its own evidence record.
+    """
+    run_id = runs.allocate()
+    duplicated = (
+        "HTTP Missing Security Headers (http-missing-security-headers)",
+        "HTTP Missing Security Headers (http-missing-security-headers)",
+        "HTTP Missing Security Headers (http-missing-security-headers)",
+    )
+    result = make_result("nuclei", run_id, titles=duplicated)
+
+    assert result.finding_count == 3
+    assert len(result.evidence) == 3
+
+    stored = evidence_module.records_for_assessment(run_id, ["nuclei"])
+    assert len(stored) == 3, "duplicate titles must each keep a record"
+
+    paths_seen = {record.path for record in stored}
+    assert len(paths_seen) == 3, "evidence paths must be unique"
+
+    check = evidence_module.verify_assessment(run_id, ["nuclei"])
+    assert check.checked == 3
+    assert check.ok
+
+
+def test_evidence_count_matches_finding_count_for_every_tool(config):
+    from bcssl import pipeline as pipeline_module
+
+    assessment_id = runs.allocate()
+    cases = {
+        "nmap": ("Port 3001 open",),
+        "zap": ("CSP header not set", "CSP header not set", "HSTS not set"),
+        "nikto": (
+            "Potentially interesting backup/cert file found (/a.tar.gz)",
+            "Potentially interesting backup/cert file found (/a.tar.lzma)",
+        ),
+        "nuclei": ("Missing Security Headers", "Missing Security Headers"),
+        "custom-scanner": ("X-Powered-By exposed",),
+    }
+    for tool, titles in cases.items():
+        result = make_result(tool, assessment_id, titles=titles)
+        pipeline_module.persist_result(result)
+        stored = evidence_module.records_for_assessment(assessment_id, [tool])
+        assert len(stored) == len(titles), (
+            f"{tool}: {len(titles)} findings produced {len(stored)} records"
+        )
+
+    verification = evidence_module.verify_assessment(assessment_id)
+    assert verification.ok
+    assert verification.checked == sum(len(titles) for titles in cases.values())
+
+
 def test_a_second_run_does_not_invalidate_the_first_runs_hash(config):
     first = runs.allocate()
     make_result("nmap", first)
@@ -417,3 +486,89 @@ def test_clean_removes_every_assessment_namespace(config):
         if item.is_file() and item.name != ".gitkeep"
     ]
     assert not leftovers
+
+
+# ---------------------------------------------------------------------------
+# A batch shares one assessment
+# ---------------------------------------------------------------------------
+class StubRunner:
+    """Minimal runner used to observe assessment assignment without tools."""
+
+    instances: list["StubRunner"] = []
+
+    def __init__(self, config, run_id=None, assessment=None, name="nmap"):  # noqa: ANN001
+        from bcssl.runner import RunnerContext
+
+        self.name = name
+        self.context = RunnerContext.create(self.name, run_id, assessment)
+        StubRunner.instances.append(self)
+
+    @property
+    def assessment_id(self) -> str:
+        return self.context.assessment
+
+    def run(self, url=None, options=None, skip_reachability=False):  # noqa: ANN001
+        from bcssl.models import RunStatus, ToolRunResult
+
+        return ToolRunResult(
+            tool=self.name,
+            status=RunStatus.OK,
+            assessment=self.context.assessment,
+            run_id=self.context.run_id,
+            stdout_path=self.context.run_id,
+        )
+
+
+class StubRunnerFactory:
+    """Stands in for ``resolve_runner``, naming each stub after its tool."""
+
+    def __call__(self, name: str) -> type[StubRunner]:
+        return type(
+            f"StubRunnerFor{name}",
+            (StubRunner,),
+            {"__init__": lambda self, config, run_id=None, assessment=None, n=name: (
+                StubRunner.__init__(self, config, run_id, assessment, n)
+            )},
+        )
+
+
+@pytest.fixture()
+def stub_runner(monkeypatch):
+    StubRunner.instances = []
+    monkeypatch.setattr(pipeline, "resolve_runner", StubRunnerFactory())
+    return StubRunner
+
+
+def test_run_all_assigns_one_assessment_to_every_tool(config, stub_runner):
+    """A full assessment is one addressable unit, not one per tool."""
+    results = pipeline.run_all(config, tools=["nmap", "zap", "nikto"])
+
+    assessments = {result.assessment for result in results}
+    assert len(assessments) == 1, f"expected one assessment, got {assessments}"
+    assert results[0].assessment == "run-001"
+    assert all(result.assessment == "run-001" for result in results)
+
+
+def test_run_all_gives_each_tool_its_own_run_id(config, stub_runner):
+    results = pipeline.run_all(config, tools=["nmap", "zap", "nikto"])
+    run_ids = {result.run_id for result in results}
+    assert run_ids == {"run-001-nmap", "run-001-zap", "run-001-nikto"}
+
+
+def test_run_all_can_join_an_existing_assessment(config, stub_runner):
+    existing = runs.allocate()
+    results = pipeline.run_all(config, tools=["nmap"], assessment=existing)
+    assert results[0].assessment == existing
+    assert runs.latest() == existing
+
+
+def test_consecutive_batches_get_distinct_assessments(config, stub_runner):
+    first = pipeline.run_all(config, tools=["nmap"])[0].assessment
+    second = pipeline.run_all(config, tools=["nmap"])[0].assessment
+    assert first != second
+    assert (first, second) == ("run-001", "run-002")
+
+
+def test_single_tool_run_allocates_its_own_assessment(config, stub_runner):
+    assert pipeline.run_tool("nmap", config).assessment == "run-001"
+    assert pipeline.run_tool("nmap", config).assessment == "run-002"

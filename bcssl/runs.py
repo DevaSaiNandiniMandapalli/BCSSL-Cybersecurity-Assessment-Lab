@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -445,6 +446,88 @@ def summarise(run_ids: Iterable[str] | None = None) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Retention
+# ---------------------------------------------------------------------------
+#: Assessments are never pruned automatically. Evidence hashes are only
+#: meaningful while the artifact they cover still exists, so a run is kept until
+#: an operator removes it deliberately.
+RETENTION_POLICY = "manual"
+
+
+def retention_policy() -> dict[str, Any]:
+    """Describe how long assessment artifacts are kept, and how to remove them."""
+    return {
+        "policy": RETENTION_POLICY,
+        "automatic_pruning": False,
+        "description": (
+            "Every assessment is retained in full, including its raw tool "
+            "output and evidence records. Evidence hashes are only meaningful "
+            "while the referenced artifact exists, so nothing is removed "
+            "automatically. Remove a run deliberately with "
+            "'python -m bcssl clean' (all runs) or by archiving an assessment "
+            "and deleting its directory."
+        ),
+        "remove_all": "python -m bcssl clean --yes",
+        "archive_first": (
+            "Copy reports/, evidence/ and state/ elsewhere before deleting an "
+            "assessment; the run index is what allows reports to be rebuilt."
+        ),
+        "verify_after": "python -m bcssl runs --verify",
+    }
+
+
+def prune(keep: int = 5, *, dry_run: bool = False) -> dict[str, Any]:
+    """Delete the oldest assessments, keeping the newest *keep*.
+
+    This is opt-in and defaults to a dry run. Evidence for a removed assessment
+    disappears with it, so archive first if the artifacts matter.
+    """
+    identifiers = list_runs()
+    if keep < 0 or keep >= len(identifiers):
+        return {"removed": [], "kept": identifiers, "dry_run": dry_run}
+
+    doomed = identifiers[:-keep] if keep else list(identifiers)
+    survivors = [item for item in identifiers if item not in doomed]
+
+    removed: list[str] = []
+    for run_id in doomed:
+        if dry_run:
+            removed.append(run_id)
+            continue
+        spots = layout(run_id)
+        for directory in (spots.raw_dir, spots.normalized_dir, spots.evidence_dir):
+            if directory.is_dir():
+                shutil.rmtree(directory, ignore_errors=True)
+        if spots.metadata_file.is_file():
+            spots.metadata_file.unlink(missing_ok=True)
+        removed.append(run_id)
+
+    if removed and not dry_run:
+        _rebuild_index(survivors)
+    return {"removed": removed, "kept": list_runs(), "dry_run": dry_run}
+
+
+def _rebuild_index(surviving: list[str]) -> None:
+    """Drop index entries for assessments that no longer exist on disk."""
+    index_path = paths.run_index_file()
+    if not index_path.is_file():
+        return
+    try:
+        data = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    keep = set(surviving)
+    data["runs"] = {
+        key: value
+        for key, value in (data.get("runs") or {}).items()
+        if assessment_of(key) in keep
+    }
+    index_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
 
 def now_stamp() -> str:

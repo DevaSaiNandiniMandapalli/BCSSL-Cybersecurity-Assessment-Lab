@@ -55,16 +55,16 @@ INCLUDE_FILES = (
 )
 
 #: Empty skeleton directories recreated in the release.
+#:
+#: Evidence and report namespaces are created per assessment, so only the
+#: parent directories are skeletonised here.
 INCLUDE_SKELETON = (
     "reports/raw",
     "reports/normalized",
     "reports/final",
-    "evidence/nmap",
-    "evidence/zap",
-    "evidence/nikto",
-    "evidence/nuclei",
-    "evidence/custom-scanner",
+    "evidence",
     "state",
+    "state/assessments",
 )
 
 EXCLUDE_DIR_NAMES = {
@@ -193,11 +193,24 @@ def audit(output: Path) -> list[str]:
         if "templates" in parts or "templates-lab" in parts:
             problems.append(f"nuclei templates present: {path.relative_to(output)}")
 
-    # Generated artifacts must be absent unless explicitly requested.
-    for pattern in ("reports/raw/*/*", "reports/final/*.html", "evidence/*/*.json"):
+    # Generated artifacts must be absent unless explicitly requested. Patterns
+    # cover both the per-assessment namespace and the older flat layout.
+    for pattern in (
+        "reports/raw/*",
+        "reports/raw/*/*",
+        "reports/raw/*/*/*",
+        "reports/normalized/*",
+        "reports/final/*",
+        "evidence/*",
+        "evidence/*/*",
+        "evidence/*/*/*",
+        "state/*",
+        "state/*/*",
+    ):
         for path in output.glob(pattern):
-            if path.name != ".gitkeep":
-                problems.append(f"generated artifact present: {path.relative_to(output)}")
+            if path.name == ".gitkeep" or path.is_dir():
+                continue
+            problems.append(f"generated artifact present: {path.relative_to(output)}")
 
     # Required content must be present.
     required = (
@@ -205,24 +218,44 @@ def audit(output: Path) -> list[str]:
         "LICENSE",
         "pyproject.toml",
         "RELEASE-CHECKLIST.md",
+        ".gitignore",
         "bcssl/__init__.py",
         "bcssl/cli.py",
         "bcssl/target.py",
+        "bcssl/runs.py",
+        "bcssl/sarif.py",
         "bcssl/runners/__init__.py",
         "bcssl/runners/nmap.py",
         "bcssl/parsers/__init__.py",
         "bcssl/lab/__init__.py",
+        "bcssl/lab/quiz.py",
         "bcssl/web/__init__.py",
         "bcssl/web/static/index.html",
         "bcssl/web/static/app.js",
+        "bcssl/web/static/styles.css",
         "config/lab-config.json",
         "target/docker-compose.yml",
+        "target/README.md",
         "scripts/setup.ps1",
+        "scripts/preflight.ps1",
         "scripts/start-target.ps1",
+        "scripts/stop-target.ps1",
+        "scripts/check-target.ps1",
+        "scripts/start-lab.ps1",
+        "scripts/stop-lab.ps1",
+        "scripts/run-all.ps1",
+        "scripts/clean.ps1",
+        "scripts/build_release.py",
         "docs/installation.md",
         "docs/limitations.md",
+        "docs/instructor-quick-start.md",
+        "docs/student-quick-start.md",
+        "docs/demo-guide.md",
+        "docs/presentation-guide.md",
         "tools/nuclei/README.md",
         "tests/conftest.py",
+        "tests/test_runs.py",
+        "tests/test_sarif.py",
     )
     for relative in required:
         if not (output / relative).exists():
@@ -235,6 +268,11 @@ def audit(output: Path) -> list[str]:
         count = len(list((output / "lab" / level).glob("ex*")))
         if count != 4:
             problems.append(f"expected 4 {level} exercises, found {count}")
+
+    # No fabricated results may ship.
+    for pattern in ("reports/final/*.sarif", "reports/final/*.html", "evidence/**/*.json"):
+        for path in output.glob(pattern):
+            problems.append(f"possible scan result in release: {path.relative_to(output)}")
 
     return problems
 

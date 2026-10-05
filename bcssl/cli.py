@@ -371,8 +371,12 @@ def cmd_run(args: argparse.Namespace, config: LabConfig) -> int:
         _print_run_result(result)
 
     if not args.no_report:
-        assessment = pipeline.collect(config)
-        written = reporting.write_reports(assessment, formats=("json",))
+        # Collect only the assessment this tool belongs to; otherwise the file
+        # written under this run's name would contain every earlier run.
+        assessment = pipeline.collect(config, assessment=result.assessment or None)
+        written = reporting.write_reports(
+            assessment, formats=("json",), run_id=result.assessment or None
+        )
         if not args.json:
             print(f"  {dim('normalized findings: ' + str(written['json'].name))}")
     return 0 if result.status.is_success else 1
@@ -399,6 +403,12 @@ def cmd_run_all(args: argparse.Namespace, config: LabConfig) -> int:
         print(green("AUTHORIZED TARGET"))
         print(f"  {validation.url}")
         print(f"  {dim('tools: ' + ', '.join(tools))}")
+
+    # One assessment for the whole batch, so the run is a single addressable
+    # unit with isolated output rather than one assessment per tool.
+    assessment_id = runs.allocate()
+    if not args.json:
+        print(f"  {dim('assessment: ' + assessment_id)}")
         print()
 
     results = []
@@ -412,6 +422,7 @@ def cmd_run_all(args: argparse.Namespace, config: LabConfig) -> int:
                 url=args.url,
                 options=_tool_options(args),
                 skip_reachability=args.skip_reachability,
+                assessment=assessment_id,
             )
         except ValueError as exc:
             print(red(f"  {exc}"))
@@ -424,8 +435,12 @@ def cmd_run_all(args: argparse.Namespace, config: LabConfig) -> int:
     if args.json:
         emit_json([result.to_dict() for result in results])
     else:
-        assessment = pipeline.collect(config)
-        written = reporting.write_reports(assessment, formats=("json",))
+        # Scope the collected data to this batch's assessment, so the report
+        # named after it describes only it and cannot absorb an earlier run.
+        collected = pipeline.collect(config, assessment=assessment_id)
+        written = reporting.write_reports(
+            collected, formats=("json",), run_id=assessment_id
+        )
         print(f"  {dim('normalized report: ' + written['json'].name)}")
         print(dim("  Run 'python -m bcssl report' for the consolidated report."))
     return 0 if all(r.status.is_success for r in results) else 1
@@ -462,11 +477,11 @@ def cmd_collect(args: argparse.Namespace, config: LabConfig) -> int:
 
 
 def cmd_report(args: argparse.Namespace, config: LabConfig) -> int:
-    assessment = pipeline.collect(config)
     formats = [fmt.strip().lower() for fmt in args.format.split(",") if fmt.strip()]
 
-    # Attach reports to the assessment they describe, so each assessment owns
-    # an isolated report set.
+    # Resolve the requested assessment *before* collecting, so the report is
+    # built from that assessment's runs only. Collecting first and naming the
+    # file afterwards would write a lab-wide aggregate under a run's name.
     run_id = ""
     try:
         run_id = runs.resolve(getattr(args, "run", None))
@@ -475,6 +490,8 @@ def cmd_report(args: argparse.Namespace, config: LabConfig) -> int:
         # printed in human mode.
         if not args.json:
             print(dim(f"  {exc}"))
+
+    assessment = pipeline.collect(config, assessment=run_id or None)
 
     try:
         written = reporting.write_reports(assessment, formats=formats, run_id=run_id or None)
@@ -520,6 +537,30 @@ def cmd_report(args: argparse.Namespace, config: LabConfig) -> int:
 
 def cmd_runs(args: argparse.Namespace, config: LabConfig) -> int:
     """List assessment runs, their isolated outputs and evidence integrity."""
+    if args.retention:
+        policy = runs.retention_policy()
+        if args.json:
+            emit_json(policy)
+            return 0
+        print()
+        rule("RETENTION POLICY")
+        print(f"  policy                 : {policy['policy']}")
+        print(f"  automatic pruning      : {policy['automatic_pruning']}")
+        print()
+        for line in _wrap(policy["description"], 62):
+            print(f"  {line}")
+        print()
+        print(f"  remove everything      : {policy['remove_all']}")
+        print(f"  verify afterwards      : {policy['verify_after']}")
+        print()
+        for line in _wrap("Archive first: " + policy["archive_first"], 62):
+            print(f"  {line}")
+        print()
+        return 0
+
+    if args.prune is not None:
+        return _cmd_prune(args, config)
+
     identifiers = runs.list_runs()
     rows = runs.summarise(identifiers)
 
@@ -558,6 +599,48 @@ def cmd_runs(args: argparse.Namespace, config: LabConfig) -> int:
                 print(red(f"        {item}"))
         print()
     return 0
+
+
+def _cmd_prune(args: argparse.Namespace, config: LabConfig) -> int:
+    """Delete old assessments, keeping the newest few."""
+    dry_run = bool(args.dry_run)
+    if not dry_run and not args.yes:
+        answer = input(
+            f"This permanently deletes assessment artifacts, keeping the newest "
+            f"{args.prune}. Type 'yes' to continue: "
+        )
+        if answer.strip().lower() != "yes":
+            print("Cancelled. Nothing was removed.")
+            return 0
+
+    result = runs.prune(keep=args.prune, dry_run=dry_run)
+    if args.json:
+        emit_json(result)
+        return 0
+
+    print()
+    if not result["removed"]:
+        print(f"  Nothing to prune; {len(result['kept'])} assessment(s) present.")
+        print()
+        return 0
+    label = "would remove" if dry_run else "removed"
+    print(f"  {label} {len(result['removed'])} assessment(s):")
+    for run_id in result["removed"]:
+        print(f"    - {run_id}")
+    print(f"  kept: {', '.join(result['kept']) or 'none'}")
+    if dry_run:
+        print(dim("  This was a dry run. Re-run without --dry-run to apply."))
+    else:
+        print(dim("  Their evidence is gone; verify what remains: python -m bcssl runs --verify"))
+    print()
+    return 0
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Wrap *text* to *width* columns for the plain-text reports."""
+    import textwrap
+
+    return textwrap.wrap(text, width=width) or [""]
 
 
 def cmd_status(args: argparse.Namespace, config: LabConfig) -> int:
@@ -1055,6 +1138,31 @@ def build_parser() -> argparse.ArgumentParser:
         "--verify",
         action="store_true",
         help="re-hash each run's evidence artifacts",
+    )
+    p.add_argument(
+        "--prune",
+        type=int,
+        metavar="KEEP",
+        help=(
+            "delete all but the newest KEEP assessments. Destructive: archive "
+            "reports/, evidence/ and state/ first, because evidence hashes "
+            "only remain verifiable while their artifact exists."
+        ),
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="with --prune, report what would be removed and delete nothing",
+    )
+    p.add_argument(
+        "--retention",
+        action="store_true",
+        help="print the documented retention policy and exit",
+    )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="with --prune, skip the confirmation prompt",
     )
     p.set_defaults(func=cmd_runs)
 

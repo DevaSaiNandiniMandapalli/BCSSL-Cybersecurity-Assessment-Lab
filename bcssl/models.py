@@ -281,6 +281,8 @@ class ToolRunResult:
     install_hint: str = ""
     target_reachable: bool | None = None
     tool_available: bool | None = None
+    #: This invocation's identifier, unique within an assessment.
+    run_id: str = ""
     #: Assessment namespace this run belongs to (``run-003``), when assigned.
     assessment: str = ""
 
@@ -301,6 +303,8 @@ class ToolRunResult:
             "status": self.status.value,
             "status_label": self.status.label,
             "target": self.target,
+            "run_id": self.run_id,
+            "assessment": self.assessment,
             "command": self.command,
             "tool_version": self.tool_version,
             "exit_code": self.exit_code,

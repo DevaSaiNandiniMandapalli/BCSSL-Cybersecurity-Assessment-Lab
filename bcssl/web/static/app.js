@@ -10,6 +10,7 @@ const VERIFY_STATUSES = ["DETECTED","CORROBORATED","SINGLE-TOOL OBSERVATION","NO
 const state = {
   data: null, findings: [], exercises: [], evidence: [],
   correlation: null, preflight: null, docs: [], target: null, selectedDoc: null,
+  reports: null,
 };
 
 /* ---------- helpers ---------- */
@@ -56,6 +57,7 @@ function showTab(name) {
   TABS.forEach((t) => el("tab-" + t).classList.toggle("hidden", t !== name));
   if (name === "preflight" && !state.preflight) runPreflight();
   if (name === "correlation" && !state.correlation) loadCorrelation();
+  if (name === "reports" && !state.reports) loadReports();
   if (name === "docs" && !state.docs.length) loadDocs();
 }
 function initTabs() {
@@ -387,16 +389,86 @@ async function gradeAnswers(exerciseId) {
     .map((x) => `<div>${esc(x.question_id)}: ${esc(x.feedback)}</div>`).join("");
 }
 
+/* Reports page: read the stored reports first, so an existing assessment is
+   visible without regenerating anything. */
+function renderReports(data) {
+  const box = el("report-files");
+  if (data.error) { box.innerHTML = empty(data.error); return; }
+  if (!data.runs || !data.runs.length) {
+    box.innerHTML = empty("No assessment has been run yet.");
+    return;
+  }
+
+  const r = data.report || {};
+  const files = data.files || {};
+  const formats = Object.keys(files).sort();
+  const fileList = formats.length
+    ? `<div class="card"><h3>Files for ${esc(data.assessment)}</h3><ul>` +
+      formats.map((f) => `<li><code>${esc(files[f])}</code> (${esc(f)})</li>`).join("") +
+      `</ul></div>`
+    : `<div class="empty">No report files exist for ${esc(data.assessment)} yet.</div>`;
+
+  // The Overview page is lab-wide on purpose; this panel is scoped to one
+  // assessment, so it states which one and how many findings that is.
+  const scoped = r.available
+    ? `<div class="card"><h3>${esc(data.assessment)} &mdash; stored report</h3>
+        <div class="grid">
+          ${stat(r.findings, "Findings in " + data.assessment)}
+          ${stat((r.correlation || {}).confirmed_by_multiple_tools || 0, "Corroborated")}
+          ${stat((r.correlation || {}).single_tool_observations || 0, "Single-tool")}
+        </div>
+        <p class="meta">read from <code>${esc(r.source)}</code> &middot; generated ${esc(r.generated_at || "-")}</p>
+        ${toolCountTable(r.tool_counts || {})}
+      </div>`
+    : `<div class="empty">No stored JSON report for ${esc(data.assessment)}. Use "Generate consolidated report" to write one.</div>`;
+
+  const rows = data.runs.map((run) => `<tr${run.latest ? ' class="latest"' : ""}>
+      <td><strong>${esc(run.run_id)}</strong>${run.latest ? ' <span class="ok">latest</span>' : ""}</td>
+      <td>${esc(run.status)}</td>
+      <td>${esc(run.tool_count)}</td>
+      <td>${esc(run.finding_count)}</td>
+      <td class="meta">${esc((run.reports || []).join(", ") || "-")}</td>
+    </tr>`).join("");
+
+  const perRun = `<div class="card"><h3>Assessments</h3><table>
+      <tr><th>Run</th><th>Status</th><th>Tools</th><th>Findings</th><th>Reports</th></tr>
+      ${rows}</table>
+      <p class="meta">Totals above are per assessment. The Overview page shows the lab-wide total on purpose.</p>
+    </div>`;
+
+  box.innerHTML = scoped + fileList + perRun;
+}
+
+function toolCountTable(toolCounts) {
+  const names = Object.keys(toolCounts);
+  if (!names.length) return "";
+  return `<table><tr><th>Tool</th><th>Findings</th></tr>` +
+    names.map((n) => `<tr><td>${esc(n)}</td><td>${esc(toolCounts[n])}</td></tr>`).join("") +
+    `</table>`;
+}
+
+async function loadReports() {
+  el("report-status").textContent = "loading ...";
+  const data = await api("/api/report");
+  state.reports = data;
+  renderReports(data);
+  if (data.error) { el("report-status").textContent = data.error; return; }
+  const r = data.report || {};
+  el("report-status").textContent = data.assessment
+    ? `${data.assessment}: ${r.available ? r.findings + " finding(s)" : "no stored report"}`
+    : "";
+}
+
 async function makeReport() {
   el("report-status").textContent = "generating ...";
   const r = await api("/api/report", { method: "POST" });
   if (r.error) { el("report-status").textContent = r.error; return; }
   el("report-status").textContent = r.has_results
-    ? `${r.findings} finding(s); ${r.correlation.confirmed_by_multiple_tools} corroborated`
+    ? `${r.assessment}: ${r.findings} finding(s); ${r.correlation.confirmed_by_multiple_tools} corroborated`
     : (r.message || "");
-  const items = Object.keys(r.files || {}).map((f) =>
-    `<li><code>${esc(r.files[f])}</code> (${esc(f)})</li>`).join("");
-  el("report-files").innerHTML = `<div class="card"><ul>${items}</ul></div>`;
+  // Re-read from storage so the panel shows what was actually written.
+  state.reports = null;
+  await loadReports();
 }
 
 async function probeTarget() {

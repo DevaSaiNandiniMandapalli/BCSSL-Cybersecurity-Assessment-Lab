@@ -81,6 +81,8 @@ tr:last-child td { border-bottom:none; }
 .ok { color:var(--ok); font-weight:600; }
 .bad { color:var(--critical); font-weight:600; }
 .muted { color:var(--muted); }
+/* The row for the assessment the Reports page is currently showing. */
+tr.latest { background:var(--panel-alt, var(--panel)); box-shadow:inset 3px 0 0 var(--ok); }
 button, select, input[type=text] {
   font-family:inherit; font-size:.85rem; border-radius:7px;
   border:1px solid var(--border); background:var(--panel); color:var(--text); padding:.35rem .6rem;

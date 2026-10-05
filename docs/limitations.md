@@ -150,6 +150,41 @@ started too early reports `TARGET UNREACHABLE`, which is correct behaviour.
   correlation, and the count of collapsed records is reported.
 - Severity is not a CVSS score. Nothing here should be presented as one.
 
+### Run rotation
+
+Each assessment gets a unique identifier from a monotonic counter
+(`run-001`, `run-002`, ...) and owns an isolated namespace for raw output,
+normalized findings, evidence, reports and metadata. Consequences to be aware of:
+
+- **The counter is reconciled, not merely incremented.** It is cross-checked
+  against the filesystem and the run index on every allocation, so deleting a
+  directory or `state/sequence.json` cannot cause an identifier to be reused.
+  It can still never move backwards past what is already on disk.
+- **Nothing is pruned automatically.** Every assessment is retained in full, so
+  a long-running cohort accumulates disk usage. Use `python -m bcssl clean` or
+  archive `reports/`, `evidence/` and `state/` between cohorts.
+- **Identifiers are per lab installation**, not globally unique. Two machines
+  each start at `run-001`.
+- Reports are regenerated from `state/run-index.json`, so the index is the
+  authoritative record. Losing it loses the ability to rebuild reports without
+  re-scanning, even though the raw output is still on disk.
+
+### SARIF export
+
+- SARIF has three levels (`error`, `warning`, `note`) and the lab has five
+  severities, so the mapping necessarily merges bands. `properties.severity`
+  preserves the original, and `security-severity` is explicitly labelled as a
+  lab band rather than a CVSS score.
+- One SARIF `run` object is emitted per tool. Consumers that assume a single run
+  need to iterate.
+- `ruleId` is the lab's correlation subject (for example `missing-header:csp`),
+  which is meaningful within the lab but is not a vendor rule identifier. Tool
+  native identifiers are preserved in `properties.toolReference`.
+- Evidence is carried as a truncated property, not embedded verbatim. The raw
+  artifact remains the authoritative record and is referenced by path.
+- The exporter has no deduplication step, deliberately: correlation groups
+  findings for human review, but the export represents what was stored.
+
 ---
 
 ## 6. Deliberate non-goals

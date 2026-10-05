@@ -177,8 +177,22 @@ def build_index(results: Iterable[ToolRunResult]) -> dict[str, Any]:
 
 
 def verify(tools: Iterable[str]) -> EvidenceVerification:
-    """Re-hash every referenced raw artifact and report drift."""
+    """Re-hash every referenced raw artifact and report drift.
+
+    Note this spans every assessment. A report for one assessment must use
+    :func:`verify_assessment` or :func:`verify_records` instead, otherwise
+    another run's artifacts appear in the integrity section.
+    """
     return _verify(all_records(tools))
+
+
+def verify_records(records: Iterable[EvidenceRecord]) -> EvidenceVerification:
+    """Re-hash exactly the given records.
+
+    Used when the caller already holds a run-scoped record set, so integrity is
+    reported for that set only and cannot drift across assessments.
+    """
+    return _verify(records)
 
 
 def _verify(records: Iterable[EvidenceRecord]) -> EvidenceVerification:

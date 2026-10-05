@@ -31,7 +31,7 @@ one that is.
 | Dashboard | **97%** | 13 pages, 16 endpoints, verified live including traversal refusal and answer-key stripping. The 3% is visual/manual presentation review by a human. |
 | Student Lab | **100%** | 12 exercises with all required sections; 36 graded questions; answer keys never exposed; completion requires evidence + answers + checklist; progress and badges. |
 | Testing | **100%** | ~325 automated tests, all passing; `compileall` clean; real-execution verification recorded separately. |
-| Documentation | **100%** | 12 documents, all consistent with the implementation; commands verified as documented. |
+| Documentation | **100%** | 22 documents, all consistent with the implementation; commands verified |ified as documented. |
 | Release Packaging | **100%** | `scripts/build_release.py` builds a clean package and audits it for caches, templates, secrets and scan artifacts. |
 
 ## Overall completion
@@ -90,7 +90,8 @@ Full detail, including per-tool commands, exit codes and artifact paths, is in
 - 12 exercises with graded questions, answer-key protection, progress and
   badges.
 - ~325 automated tests plus real-execution verification.
-- 12 documents, release packaging with audit, release checklist.
+- 22 documents including overview, architecture, demo, presentation, viva, quick starts, reporting, limitations and the scorecard.
+- Release packaging with audit, plus clean-copy verification from a fresh extracted directory.
 - Nuclei template management with a curated, documented lab profile.
 
 ## REMAINING

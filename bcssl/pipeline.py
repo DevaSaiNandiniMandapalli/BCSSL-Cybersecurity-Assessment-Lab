@@ -162,7 +162,13 @@ def persist_result(result: ToolRunResult) -> Path:
 
 
 def _run_id_for(result: ToolRunResult) -> str:
-    """Derive a stable run id from the stored stdout path."""
+    """The run's own identifier.
+
+    Taken from the result when the runner recorded it, and otherwise derived
+    from the stored stdout path so results rebuilt from older state still work.
+    """
+    if result.run_id:
+        return result.run_id
     if result.stdout_path:
         parts = Path(result.stdout_path).parts
         if len(parts) >= 2:
@@ -179,12 +185,33 @@ def load_run_index() -> dict[str, Any]:
     return data
 
 
-def results_from_index() -> list[ToolRunResult]:
-    """Rebuild :class:`ToolRunResult` objects from the stored run index."""
+def _assessment_of_entry(run_id: str, entry: dict[str, Any]) -> str:
+    """The assessment an index entry belongs to.
+
+    Prefers the recorded ``assessment`` field and falls back to the identifier
+    itself, so entries written before the field existed are still scoped
+    correctly instead of leaking into every report.
+    """
+    recorded = str(entry.get("assessment", "") or "")
+    return recorded or runs.assessment_of(run_id) or ""
+
+
+def results_from_index(assessment: str | None = None) -> list[ToolRunResult]:
+    """Rebuild :class:`ToolRunResult` objects from the stored run index.
+
+    Args:
+        assessment: when given, only the tool runs belonging to that assessment
+            (``run-003``) are returned. This is what keeps one assessment's
+            report from absorbing another assessment's findings. When omitted,
+            every stored run is returned, which is what the lab-wide overview
+            views want.
+    """
     index = load_run_index()
     rebuilt: list[ToolRunResult] = []
     for run_id, entry in index.get("runs", {}).items():
         if not isinstance(entry, dict):
+            continue
+        if assessment and _assessment_of_entry(run_id, entry) != assessment:
             continue
         status_value = str(entry.get("status", RunStatus.OK.value))
         try:
@@ -217,6 +244,8 @@ def results_from_index() -> list[ToolRunResult]:
                 tool=entry.get("tool", ""),
                 status=status,
                 target=entry.get("target", ""),
+                run_id=run_id,
+                assessment=_assessment_of_entry(run_id, entry),
                 command=list(entry.get("command", [])),
                 tool_version=entry.get("tool_version", ""),
                 exit_code=entry.get("exit_code"),
@@ -264,6 +293,14 @@ class CollectedAssessment:
     #: Result of the lab's own re-checks against the authorized target.
     verification: Any = None
     verification_counts: dict[str, int] = field(default_factory=dict)
+    #: Assessment this object describes (``run-003``). Empty means the object
+    #: spans every stored assessment, which is only valid for lab-wide views.
+    assessment: str = ""
+
+    @property
+    def scoped(self) -> bool:
+        """True when the results belong to exactly one assessment."""
+        return bool(self.assessment)
 
     @property
     def successful_runs(self) -> list[ToolRunResult]:
@@ -277,6 +314,8 @@ class CollectedAssessment:
         return [
             {
                 "tool": result.tool,
+                "run_id": result.run_id,
+                "assessment": result.assessment,
                 "status": result.status.value,
                 "status_label": result.status.label,
                 "tool_available": result.tool_available,
@@ -298,6 +337,7 @@ def collect(
     *,
     url: str | None = None,
     verify_findings: bool = True,
+    assessment: str | None = None,
 ) -> CollectedAssessment:
     """Collect stored runs, correlate findings, verify and index evidence.
 
@@ -307,9 +347,19 @@ def collect(
         verify_findings: when true, re-check the conditions tools reported
             against the authorized target so findings can be marked DETECTED.
             Skipped automatically when the target is unreachable.
+        assessment: restrict the collected data to one assessment (``run-003``).
+            Every finding, tool record, raw artifact path, correlation group,
+            verification result and evidence record then comes from that
+            assessment alone, so a report can never absorb an earlier run's
+            output. When omitted, every stored run is collected, which is only
+            appropriate for a lab-wide overview.
     """
     paths.ensure_layout()
-    results = results_from_index()
+    if assessment:
+        # Refuse a malformed or unknown identifier rather than silently
+        # falling back to a lab-wide collection.
+        assessment = runs.resolve(assessment)
+    results = results_from_index(assessment)
     findings = [finding for result in results for finding in result.findings]
     correlation = correlate(findings)
 
@@ -317,18 +367,24 @@ def collect(
         record for result in results for record in result.evidence
     ]
     if not records:
-        records = evidence_module.all_records(config.tool_names())
+        if assessment:
+            records = evidence_module.records_for_assessment(
+                assessment, config.tool_names()
+            )
+        else:
+            records = evidence_module.all_records(config.tool_names())
 
     target_url = url or config.authorized_url
     validation = validate_target(target_url, config)
 
-    assessment = CollectedAssessment(
+    assessment_obj = CollectedAssessment(
         target=validation,
         config=config,
         results=results,
         correlation=correlation,
         evidence_records=records,
         scope_text=describe_scope(config),
+        assessment=assessment or "",
     )
 
     # Independent verification of what the tools claimed. Only upgrades
@@ -337,17 +393,17 @@ def collect(
         from .verify import apply_verification, verify
 
         result = verify(findings, config, url=validation.url)
-        assessment.verification = result
+        assessment_obj.verification = result
         if result.reachable:
-            assessment.verification_counts = apply_verification(findings, result)
+            assessment_obj.verification_counts = apply_verification(findings, result)
         else:
-            assessment.warnings.append(
+            assessment_obj.warnings.append(
                 "Findings could not be independently verified because the "
                 f"target did not respond ({result.error}). Findings are left at "
                 "their correlated status."
             )
     elif findings:
-        assessment.verification_counts = {
+        assessment_obj.verification_counts = {
             status: sum(
                 1 for f in findings if f.verification_status == status
             )
@@ -360,7 +416,7 @@ def collect(
         }
 
     if not results:
-        assessment.warnings.append(
+        assessment_obj.warnings.append(
             "No scan results are available. Run a tool with "
             "'python -m bcssl run <tool>' before generating a report."
         )
@@ -371,11 +427,11 @@ def collect(
             if result.status is not RunStatus.OK
         ]
         if skipped:
-            assessment.warnings.append(
+            assessment_obj.warnings.append(
                 "The following tools did not produce a normal result and are "
                 f"excluded from the severity summary: {', '.join(skipped)}."
             )
-    return assessment
+    return assessment_obj
 
 
 __all__ = [
